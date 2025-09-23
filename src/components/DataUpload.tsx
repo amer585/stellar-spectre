@@ -107,10 +107,12 @@ const DataUpload = ({ userId }: DataUploadProps) => {
     e.preventDefault();
     const droppedFile = e.dataTransfer.files[0];
     if (droppedFile) {
-      const event = {
-        target: { files: [droppedFile] }
-      } as React.ChangeEvent<HTMLInputElement>;
-      handleFileSelect(event);
+      // Directly call handleFileSelect with constructed event
+      handleFileSelect({
+        target: {
+          files: e.dataTransfer.files
+        }
+      } as React.ChangeEvent<HTMLInputElement>);
     }
   }, [handleFileSelect]);
 

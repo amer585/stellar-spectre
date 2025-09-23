@@ -10,18 +10,9 @@ import { toast } from "sonner";
 interface TransitAnalysis {
   id: string;
   file_name: string;
-  analysis_result: {
-    detection: boolean;
-    orbital_period?: number;
-    transit_depth?: number;
-    planet_radius_ratio?: number;
-    confidence_score: number;
-    transit_duration?: number;
-    signal_to_noise?: number;
-    analysis_notes?: string;
-  };
+  analysis_result: any; // Use any for JSON data from database
   created_at: string;
-  status: 'completed' | 'processing' | 'failed';
+  status: string; // Use string instead of union for database compatibility
 }
 
 const AnalysisResults = () => {

@@ -15,11 +15,7 @@ interface AnalysisHistoryProps {
 interface HistoryEntry {
   id: string;
   file_name: string;
-  analysis_result: {
-    detection: boolean;
-    confidence_score: number;
-    orbital_period?: number;
-  };
+  analysis_result: any; // Use any for JSON data from database
   created_at: string;
   status: string;
 }
