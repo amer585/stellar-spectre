@@ -23,11 +23,11 @@ const DataUpload = ({ userId }: DataUploadProps) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
       // Validate file type and size
-      const validTypes = ['.csv', '.txt', '.dat'];
+      const validTypes = ['.csv', '.txt', '.dat', '.tsv', '.json', '.xlsx', '.xls', '.fits', '.h5', '.hdf5', '.parquet'];
       const fileExtension = '.' + selectedFile.name.split('.').pop()?.toLowerCase();
       
       if (!validTypes.includes(fileExtension)) {
-        toast.error("Please upload a CSV, TXT, or DAT file containing light curve data");
+        toast.error("Please upload a supported data file (CSV, TXT, DAT, TSV, JSON, XLSX, XLS, FITS, H5, HDF5, or Parquet)");
         return;
       }
       
@@ -145,7 +145,7 @@ const DataUpload = ({ userId }: DataUploadProps) => {
                   {file ? file.name : "Drag & drop your light curve file"}
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : "CSV, TXT, or DAT format (max 50MB)"}
+                  {file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : "Multiple formats supported (max 50MB)"}
                 </p>
               </div>
               <Button variant="outline" type="button">
@@ -157,7 +157,7 @@ const DataUpload = ({ userId }: DataUploadProps) => {
           <Input
             id="file-input"
             type="file"
-            accept=".csv,.txt,.dat"
+            accept=".csv,.txt,.dat,.tsv,.json,.xlsx,.xls,.fits,.h5,.hdf5,.parquet"
             onChange={handleFileSelect}
             className="hidden"
           />
