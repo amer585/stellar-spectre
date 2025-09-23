@@ -47,6 +47,21 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Custom stellar theme colors
+        stellar: {
+          gold: "hsl(var(--stellar-gold))",
+          "gold-muted": "hsl(var(--stellar-gold-muted))",
+        },
+        nebula: {
+          blue: "hsl(var(--nebula-blue))",
+          purple: "hsl(var(--nebula-purple))",
+        },
+        cosmic: {
+          teal: "hsl(var(--cosmic-teal))",
+        },
+        void: {
+          black: "hsl(var(--void-black))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
