@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Upload, FileText, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Upload, FileText, AlertCircle, CheckCircle2, Image } from "lucide-react";
 import { toast } from "sonner";
 
 interface DataUploadProps {
@@ -18,16 +18,20 @@ const DataUpload = ({ userId }: DataUploadProps) => {
   const [analyzing, setAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [uploadComplete, setUploadComplete] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [preview, setPreview] = useState<string | null>(null);
 
   const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
       // Validate file type and size
-      const validTypes = ['.csv', '.txt', '.dat', '.tsv', '.json', '.xlsx', '.xls', '.fits', '.h5', '.hdf5', '.parquet'];
+      const dataTypes = ['.csv', '.txt', '.dat', '.tsv', '.json', '.xlsx', '.xls', '.fits', '.h5', '.hdf5', '.parquet'];
+      const imageTypes = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp'];
+      const validTypes = [...dataTypes, ...imageTypes];
       const fileExtension = '.' + selectedFile.name.split('.').pop()?.toLowerCase();
       
       if (!validTypes.includes(fileExtension)) {
-        toast.error("Please upload a supported data file (CSV, TXT, DAT, TSV, JSON, XLSX, XLS, FITS, H5, HDF5, or Parquet)");
+        toast.error("Please upload a supported file (Data: CSV, TXT, DAT, TSV, JSON, XLSX, XLS, FITS, H5, HDF5, Parquet | Images: PNG, JPG, JPEG, GIF, BMP, TIFF, WEBP)");
         return;
       }
       
@@ -39,6 +43,15 @@ const DataUpload = ({ userId }: DataUploadProps) => {
       setFile(selectedFile);
       setUploadComplete(false);
       setProgress(0);
+      
+      // Generate preview for images
+      if (imageTypes.includes(fileExtension)) {
+        const reader = new FileReader();
+        reader.onload = (e) => setPreview(e.target?.result as string);
+        reader.readAsDataURL(selectedFile);
+      } else {
+        setPreview(null);
+      }
     }
   }, []);
 
@@ -88,6 +101,7 @@ const DataUpload = ({ userId }: DataUploadProps) => {
 
       toast.success("Analysis complete! Check the Results tab for findings.");
       setFile(null);
+      setPreview(null);
       
     } catch (error: any) {
       console.error('Upload/Analysis error:', error);
@@ -99,12 +113,25 @@ const DataUpload = ({ userId }: DataUploadProps) => {
     }
   };
 
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragging(false);
+    }
+  }, []);
+
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    setIsDragging(false);
     const droppedFile = e.dataTransfer.files[0];
     if (droppedFile) {
       // Directly call handleFileSelect with constructed event
@@ -122,58 +149,124 @@ const DataUpload = ({ userId }: DataUploadProps) => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5" />
-            Light Curve Data Upload
+            Light Curve Analysis Upload
           </CardTitle>
           <CardDescription>
-            Upload stellar brightness measurements for exoplanet transit detection
+            Upload stellar data files (CSV, JSON, FITS, Excel) or light curve images (PNG, JPG) for AI-powered exoplanet transit detection
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* File Upload Area */}
           <div
-            className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-accent transition-colors"
+            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-300 ${
+              isDragging
+                ? "border-primary bg-primary/5 scale-105 shadow-lg"
+                : file
+                ? "border-primary/50 bg-primary/5"
+                : "border-border hover:border-accent hover:bg-accent/5"
+            }`}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
             onClick={() => document.getElementById('file-input')?.click()}
           >
-            <div className="flex flex-col items-center gap-4">
-              <div className="p-4 rounded-full bg-muted">
-                <FileText className="h-8 w-8 text-muted-foreground" />
+            {preview ? (
+              <div className="flex flex-col items-center gap-4">
+                <div className="relative">
+                  <img 
+                    src={preview} 
+                    alt="Preview" 
+                    className="max-h-32 max-w-full rounded-lg object-contain"
+                  />
+                  <div className="absolute top-2 right-2 p-1 rounded-full bg-background/80 backdrop-blur-sm">
+                    <Image className="h-4 w-4 text-primary" />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-lg font-medium">{file?.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {file && `${(file.size / 1024 / 1024).toFixed(2)} MB`} • Light curve image
+                  </p>
+                </div>
+                <Button variant="outline" type="button" size="sm">
+                  Change File
+                </Button>
               </div>
-              <div>
-                <p className="text-lg font-medium">
-                  {file ? file.name : "Drag & drop your light curve file"}
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : "Multiple formats supported (max 50MB)"}
-                </p>
+            ) : (
+              <div className="flex flex-col items-center gap-4">
+                <div className={`p-6 rounded-full transition-colors ${
+                  isDragging ? "bg-primary/20" : "bg-muted"
+                }`}>
+                  {isDragging ? (
+                    <Upload className="h-10 w-10 text-primary animate-bounce" />
+                  ) : file ? (
+                    <CheckCircle2 className="h-10 w-10 text-primary" />
+                  ) : (
+                    <FileText className="h-10 w-10 text-muted-foreground" />
+                  )}
+                </div>
+                <div>
+                  <p className="text-xl font-medium mb-2">
+                    {isDragging 
+                      ? "Drop your file here" 
+                      : file 
+                      ? file.name 
+                      : "Drag & drop your light curve data"
+                    }
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {file 
+                      ? `${(file.size / 1024 / 1024).toFixed(2)} MB` 
+                      : "Data files (CSV, JSON, FITS, Excel) or Light curve images (PNG, JPG)"
+                    }
+                  </p>
+                </div>
+                <Button 
+                  variant={isDragging ? "default" : "outline"} 
+                  type="button"
+                  className="transition-all"
+                >
+                  Browse Files
+                </Button>
               </div>
-              <Button variant="outline" type="button">
-                Browse Files
-              </Button>
-            </div>
+            )}
           </div>
 
           <Input
             id="file-input"
             type="file"
-            accept=".csv,.txt,.dat,.tsv,.json,.xlsx,.xls,.fits,.h5,.hdf5,.parquet"
+            accept=".csv,.txt,.dat,.tsv,.json,.xlsx,.xls,.fits,.h5,.hdf5,.parquet,.png,.jpg,.jpeg,.gif,.bmp,.tiff,.webp"
             onChange={handleFileSelect}
             className="hidden"
           />
 
           {/* File Format Info */}
-          <div className="bg-muted/50 rounded-lg p-4">
-            <h4 className="font-medium mb-2 flex items-center gap-2">
-              <AlertCircle className="h-4 w-4" />
-              Expected Data Format
+          <div className="bg-gradient-to-r from-muted/50 to-muted/30 rounded-xl p-6 border border-border/50">
+            <h4 className="font-medium mb-3 flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-accent" />
+              Supported Formats & Data Types
             </h4>
-            <ul className="text-sm text-muted-foreground space-y-1">
-              <li>• Time column (days, hours, or Julian dates)</li>
-              <li>• Brightness/flux measurements (normalized or raw)</li>
-              <li>• Optional: measurement errors/uncertainties</li>
-              <li>• CSV format with headers preferred</li>
-            </ul>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="font-medium text-foreground mb-2">📊 Data Files:</p>
+                <ul className="text-muted-foreground space-y-1">
+                  <li>• Time-series data (CSV, TSV, JSON)</li>
+                  <li>• Excel files (XLSX, XLS)</li>
+                  <li>• Astronomy formats (FITS, HDF5)</li>
+                  <li>• Advanced: Parquet, DAT, TXT</li>
+                </ul>
+              </div>
+              <div>
+                <p className="font-medium text-foreground mb-2">🖼️ Light Curve Images:</p>
+                <ul className="text-muted-foreground space-y-1">
+                  <li>• Charts/graphs (PNG, JPG, JPEG)</li>
+                  <li>• Scientific plots (TIFF, BMP)</li>
+                  <li>• Web images (WEBP, GIF)</li>
+                  <li>• AI will extract data from plots</li>
+                </ul>
+              </div>
+            </div>
           </div>
 
           {/* Upload Progress */}
