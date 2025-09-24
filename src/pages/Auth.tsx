@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Telescope, Stars, Orbit } from "lucide-react";
+import { PasswordReset } from "@/components/PasswordReset";
 import type { User, Session } from '@supabase/supabase-js';
 
 const Auth = () => {
@@ -16,6 +17,7 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -100,6 +102,15 @@ const Auth = () => {
     }
   };
 
+  if (showPasswordReset) {
+    return (
+      <div className="min-h-screen cosmic-gradient flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-[url('/src/assets/hero-nebula.jpg')] bg-cover bg-center opacity-20" />
+        <PasswordReset onBack={() => setShowPasswordReset(false)} />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen cosmic-gradient flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-[url('/src/assets/hero-nebula.jpg')] bg-cover bg-center opacity-20" />
@@ -155,6 +166,15 @@ const Auth = () => {
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? "Accessing Observatory..." : "Sign In"}
+                </Button>
+                
+                <Button 
+                  type="button"
+                  variant="link" 
+                  className="w-full mt-2 p-0 h-auto text-sm text-muted-foreground hover:text-primary"
+                  onClick={() => setShowPasswordReset(true)}
+                >
+                  Forgot your password?
                 </Button>
               </form>
             </TabsContent>
