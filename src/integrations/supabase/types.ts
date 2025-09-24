@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_training_sessions: {
+        Row: {
+          accuracy_improvement: number | null
+          created_at: string
+          id: string
+          status: string
+          trained_at: string | null
+          training_images_count: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accuracy_improvement?: number | null
+          created_at?: string
+          id?: string
+          status?: string
+          trained_at?: string | null
+          training_images_count?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          accuracy_improvement?: number | null
+          created_at?: string
+          id?: string
+          status?: string
+          trained_at?: string | null
+          training_images_count?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       password_reset_tokens: {
         Row: {
           created_at: string
