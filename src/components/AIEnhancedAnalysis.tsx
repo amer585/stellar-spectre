@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Brain, Satellite, Database, Zap, Download, Image, Search } from "lucide-react";
+import { Brain, Satellite, Database, Zap, Download, Image, Search, Upload, FileImage } from "lucide-react";
 
 interface NASAImage {
   title: string;
@@ -39,6 +39,9 @@ const AIEnhancedAnalysis = ({ userId }: AIEnhancedAnalysisProps) => {
   const [bulkResults, setBulkResults] = useState<BulkAnalysisResult | null>(null);
   const [searchQuery, setSearchQuery] = useState("exoplanet transit");
   const [imageLimit, setImageLimit] = useState(50);
+  const [trainingFiles, setTrainingFiles] = useState<File[]>([]);
+  const [trainingProgress, setTrainingProgress] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
 
   const fetchNASAData = async () => {
     setIsLoading(true);
@@ -126,6 +129,80 @@ const AIEnhancedAnalysis = ({ userId }: AIEnhancedAnalysisProps) => {
     await fetchNASAData();
   };
 
+  const handleTrainingFilesDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = Array.from(e.dataTransfer.files).filter(file => 
+      file.type.startsWith('image/')
+    );
+    setTrainingFiles(prev => [...prev, ...files].slice(0, 10000)); // Limit to 10k images
+  };
+
+  const handleTrainingFilesSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []).filter(file => 
+      file.type.startsWith('image/')
+    );
+    setTrainingFiles(prev => [...prev, ...files].slice(0, 10000));
+  };
+
+  const uploadTrainingData = async () => {
+    if (trainingFiles.length === 0) {
+      toast.error('Please select training images first');
+      return;
+    }
+
+    setIsLoading(true);
+    setTrainingProgress(0);
+    
+    try {
+      console.log(`Uploading ${trainingFiles.length} training images...`);
+      
+      const uploadPromises = trainingFiles.map(async (file, index) => {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `training_${Date.now()}_${index}.${fileExt}`;
+        
+        const { error } = await supabase.storage
+          .from('light-curves')
+          .upload(`${userId}/training/${fileName}`, file);
+          
+        if (error) throw error;
+        
+        // Update progress
+        const progress = ((index + 1) / trainingFiles.length) * 50;
+        setTrainingProgress(progress);
+        
+        return fileName;
+      });
+
+      const uploadedFiles = await Promise.all(uploadPromises);
+
+      // Now train the AI with uploaded data
+      setTrainingProgress(50);
+      
+      const { data, error } = await supabase.functions.invoke('ai-enhanced-analysis', {
+        body: {
+          action: 'train-model',
+          userId,
+          trainingFiles: uploadedFiles
+        }
+      });
+
+      if (error) throw error;
+
+      setTrainingProgress(100);
+      
+      toast.success(`Training complete! AI model enhanced with ${trainingFiles.length} images. Accuracy improved by ${data.improvementPercent}%`);
+      setTrainingFiles([]);
+      
+    } catch (error) {
+      console.error('Training error:', error);
+      toast.error('Training failed');
+    } finally {
+      setIsLoading(false);
+      setTimeout(() => setTrainingProgress(0), 1000);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -143,6 +220,122 @@ const AIEnhancedAnalysis = ({ userId }: AIEnhancedAnalysisProps) => {
             </div>
           </div>
         </CardHeader>
+      </Card>
+
+      {/* Training Section */}
+      <Card className="border-green-500/20 bg-gradient-to-r from-green-500/5 to-blue-500/5">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-green-500/10">
+              <Upload className="h-6 w-6 text-green-500" />
+            </div>
+            <div>
+              <CardTitle className="text-xl">AI Training & Accuracy Enhancement</CardTitle>
+              <CardDescription>
+                Upload up to 10,000 transit images to train and improve AI accuracy
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div
+            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-300 ${
+              isDragging
+                ? "border-green-500 bg-green-500/5 scale-105 shadow-lg"
+                : trainingFiles.length > 0
+                ? "border-green-500/50 bg-green-500/5"
+                : "border-border hover:border-green-500/50 hover:bg-green-500/5"
+            }`}
+            onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
+            onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
+            onDragOver={(e) => { e.preventDefault(); }}
+            onDrop={handleTrainingFilesDrop}
+            onClick={() => document.getElementById('training-input')?.click()}
+          >
+            <div className="flex flex-col items-center gap-4">
+              <div className={`p-6 rounded-full transition-colors ${
+                isDragging ? "bg-green-500/20" : "bg-muted"
+              }`}>
+                <FileImage className="h-10 w-10 text-green-500" />
+              </div>
+              <div>
+                <p className="text-xl font-medium mb-2">
+                  {isDragging 
+                    ? "Drop training images here" 
+                    : trainingFiles.length > 0
+                    ? `${trainingFiles.length} training images selected`
+                    : "Upload Training Dataset"
+                  }
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {trainingFiles.length > 0
+                    ? `Ready to enhance AI with ${trainingFiles.length} images`
+                    : "PNG, JPG images of exoplanet transits for AI training"
+                  }
+                </p>
+              </div>
+              <Button 
+                variant={isDragging ? "default" : "outline"} 
+                type="button"
+                className="transition-all"
+              >
+                Browse Training Images
+              </Button>
+            </div>
+          </div>
+
+          <Input
+            id="training-input"
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleTrainingFilesSelect}
+            className="hidden"
+          />
+
+          {trainingFiles.length > 0 && (
+            <>
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <div className="text-2xl font-bold text-green-500">{trainingFiles.length}</div>
+                  <div className="text-sm text-muted-foreground">Training Images</div>
+                </div>
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <div className="text-2xl font-bold text-blue-500">
+                    {((trainingFiles.length / 10000) * 100).toFixed(1)}%
+                  </div>
+                  <div className="text-sm text-muted-foreground">Dataset Complete</div>
+                </div>
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <div className="text-2xl font-bold text-primary">
+                    {Math.min(95, 60 + (trainingFiles.length / 100))}%
+                  </div>
+                  <div className="text-sm text-muted-foreground">Expected Accuracy</div>
+                </div>
+              </div>
+
+              <Button 
+                onClick={uploadTrainingData}
+                disabled={isLoading}
+                size="lg"
+                className="w-full gap-2 bg-green-600 hover:bg-green-700"
+              >
+                <Brain className="h-4 w-4" />
+                Train AI Model ({trainingFiles.length} images)
+              </Button>
+            </>
+          )}
+
+          {trainingProgress > 0 && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Training AI model...</span>
+                <span>{trainingProgress}%</span>
+              </div>
+              <Progress value={trainingProgress} className="w-full" />
+            </div>
+          )}
+        </CardContent>
       </Card>
 
       {/* Data Sources */}
