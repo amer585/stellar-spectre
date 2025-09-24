@@ -1,4 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import { Resend } from "https://esm.sh/resend@4.0.0";
+
+const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -78,16 +81,65 @@ Deno.serve(async (req) => {
     // Generate reset URL
     const resetUrl = `${Deno.env.get('SUPABASE_URL')}/auth/v1/verify?token=${resetToken}&type=recovery&redirect_to=${encodeURIComponent(req.headers.get('origin') || '')}`;
 
-    // Log for now (email integration can be added later)
-    console.log('Password reset requested for:', email);
-    console.log('Reset URL:', resetUrl);
+    // Send password reset email
+    try {
+      const emailResponse = await resend.emails.send({
+        from: "Stellar Spectre <onboarding@resend.dev>",
+        to: [email],
+        subject: "Reset Your Stellar Spectre Password",
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0; font-size: 28px;">🔭 Stellar Spectre</h1>
+              <p style="color: white; margin: 10px 0 0 0; opacity: 0.9;">Advanced Exoplanet Detection System</p>
+            </div>
+            
+            <div style="padding: 40px 30px; background: white;">
+              <h2 style="color: #333; margin: 0 0 20px 0;">Password Reset Request</h2>
+              <p style="color: #666; line-height: 1.6; margin: 0 0 25px 0;">
+                We received a request to reset your password for your Stellar Spectre account. 
+                Click the button below to create a new password.
+              </p>
+              
+              <div style="text-align: center; margin: 35px 0;">
+                <a href="${resetUrl}" 
+                   style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                          color: white; 
+                          text-decoration: none; 
+                          padding: 15px 30px; 
+                          border-radius: 8px; 
+                          font-weight: bold; 
+                          display: inline-block;
+                          font-size: 16px;">
+                  Reset Password
+                </a>
+              </div>
+              
+              <p style="color: #999; font-size: 14px; line-height: 1.6; margin: 30px 0 0 0;">
+                This link will expire in 24 hours. If you didn't request this password reset, 
+                you can safely ignore this email. Your password will remain unchanged.
+              </p>
+              
+              <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+              
+              <p style="color: #999; font-size: 12px; text-align: center; margin: 0;">
+                © Stellar Spectre - Advanced Exoplanet Detection System
+              </p>
+            </div>
+          </div>
+        `,
+      });
+
+      console.log("Password reset email sent successfully:", emailResponse);
+    } catch (emailError) {
+      console.error("Failed to send password reset email:", emailError);
+      // Continue with success response for security (don't reveal email sending failures)
+    }
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'If an account with that email exists, you will receive a password reset link.',
-        // Include reset URL in development for testing
-        ...(Deno.env.get('ENVIRONMENT') === 'development' && { resetUrl })
+        message: 'If an account with that email exists, you will receive a password reset link.'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
