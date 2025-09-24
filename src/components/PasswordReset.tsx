@@ -29,6 +29,7 @@ export const PasswordReset = ({ onBack }: PasswordResetProps) => {
       return;
     }
 
+    console.log('Password reset form submitted for:', email);
     setIsLoading(true);
 
     try {
@@ -37,7 +38,10 @@ export const PasswordReset = ({ onBack }: PasswordResetProps) => {
         body: { email }
       });
 
+      console.log('Password reset response:', { data, error });
+
       if (error) {
+        console.error('Password reset error:', error);
         throw error;
       }
 
@@ -74,7 +78,10 @@ export const PasswordReset = ({ onBack }: PasswordResetProps) => {
           </CardHeader>
           <CardContent>
             <Button 
-              onClick={onBack}
+              onClick={() => {
+                console.log('Back to login clicked from success page');
+                onBack();
+              }}
               variant="outline"
               className="w-full"
             >
@@ -121,7 +128,10 @@ export const PasswordReset = ({ onBack }: PasswordResetProps) => {
           </form>
           
           <Button 
-            onClick={onBack}
+            onClick={() => {
+              console.log('Back to login clicked from form page');
+              onBack();
+            }}
             variant="ghost"
             className="w-full mt-4"
           >
