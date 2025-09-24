@@ -3,11 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LogOut, Upload, History, BarChart3, Telescope } from "lucide-react";
+import { LogOut, Upload, History, BarChart3, Telescope, Brain } from "lucide-react";
 import { toast } from "sonner";
 import DataUpload from "./DataUpload";
 import AnalysisResults from "./AnalysisResults";
 import AnalysisHistory from "./AnalysisHistory";
+import AIEnhancedAnalysis from "./AIEnhancedAnalysis";
 import type { User, Session } from '@supabase/supabase-js';
 
 interface DashboardProps {
@@ -90,10 +91,14 @@ const Dashboard = ({ user, session }: DashboardProps) => {
         </div>
 
         <Tabs defaultValue="upload" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 max-w-md">
+          <TabsList className="grid w-full grid-cols-4 max-w-2xl">
             <TabsTrigger value="upload" className="flex items-center gap-2">
               <Upload className="h-4 w-4" />
               Upload
+            </TabsTrigger>
+            <TabsTrigger value="ai-enhanced" className="flex items-center gap-2">
+              <Brain className="h-4 w-4" />
+              AI Enhanced
             </TabsTrigger>
             <TabsTrigger value="results" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
@@ -107,6 +112,10 @@ const Dashboard = ({ user, session }: DashboardProps) => {
 
           <TabsContent value="upload" className="space-y-6">
             <DataUpload userId={user.id} />
+          </TabsContent>
+
+          <TabsContent value="ai-enhanced" className="space-y-6">
+            <AIEnhancedAnalysis userId={user.id} />
           </TabsContent>
 
           <TabsContent value="results" className="space-y-6">
