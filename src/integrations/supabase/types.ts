@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      password_reset_tokens: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          token: string
+          used: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          token: string
+          used?: boolean
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          token?: string
+          used?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          role: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id?: string
+          role?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          role?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       transit_analyses: {
         Row: {
           analysis_result: Json | null
@@ -44,6 +101,39 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      user_registration_requests: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          email: string
+          full_name: string | null
+          id: string
+          notes: string | null
+          requested_at: string
+          status: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          email: string
+          full_name?: string | null
+          id?: string
+          notes?: string | null
+          requested_at?: string
+          status?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          email?: string
+          full_name?: string | null
+          id?: string
+          notes?: string | null
+          requested_at?: string
+          status?: string
         }
         Relationships: []
       }
