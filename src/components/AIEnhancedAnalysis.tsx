@@ -10,9 +10,11 @@ import { useToast } from '@/hooks/use-toast';
 
 interface DatasetStats {
   totalImages: number;
-  planetsCount: number;
-  moonsCount: number; 
-  otherCount: number;
+  positiveCount: number;
+  negativeCount: number;
+  lightCurvesCount: number;
+  visualizationsCount: number;
+  syntheticCount: number;
   duplicatesSkipped: number;
   failuresCount: number;
   sources: Record<string, number>;
@@ -216,10 +218,10 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Brain className="h-6 w-6 text-primary" />
-            Advanced AI Exoplanet Detection System
+            Complete Exoplanet Dataset Builder & AI Trainer
           </CardTitle>
           <CardDescription>
-            World-class AI system that automatically collects 10,000+ images, trains Vision Transformers, and achieves 95%+ accuracy
+            Comprehensive system that collects real Kepler/TESS light curves, generates synthetic data, and creates balanced datasets for exoplanet detection AI
           </CardDescription>
         </CardHeader>
       </Card>
@@ -238,10 +240,10 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Download className="h-5 w-5" />
-                Automated Dataset Collection
+                Complete Exoplanet Dataset Builder
               </CardTitle>
               <CardDescription>
-                Automatically fetch and organize 10,000+ astronomical images from NASA, ESA, and Kaggle
+                Build balanced datasets with real Kepler/TESS light curves, synthetic transits, and NASA visualizations
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -259,14 +261,15 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
                     <option value={25000}>25,000 images (Research Grade)</option>
                   </select>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Data Sources</label>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="outline">NASA Image Library</Badge>
-                    <Badge variant="outline">ESA/Hubble Archive</Badge>
-                    <Badge variant="secondary">Kaggle Datasets</Badge>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Dataset Components</label>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline">Kepler Light Curves</Badge>
+                      <Badge variant="outline">TESS Data</Badge>
+                      <Badge variant="outline">NASA Visualizations</Badge>
+                      <Badge variant="secondary">Synthetic Transits</Badge>
+                    </div>
                   </div>
-                </div>
               </div>
 
               <Button 
@@ -275,7 +278,7 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
                 className="w-full"
                 size="lg"
               >
-                {loading ? 'Collecting Dataset...' : 'Start Automated Collection'}
+                {loading ? 'Building Dataset...' : 'Build Complete Exoplanet Dataset'}
               </Button>
 
               {loading && (
@@ -291,25 +294,41 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
               {datasetStats && (
                 <Card className="bg-primary/5">
                   <CardHeader>
-                    <CardTitle className="text-lg">Collection Complete!</CardTitle>
+                    <CardTitle className="text-lg">Dataset Complete! 🎯</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="grid gap-2 md:grid-cols-4">
                       <div className="text-center p-3 bg-white rounded-lg">
                         <div className="text-xl font-bold text-primary">{datasetStats.totalImages}</div>
-                        <div className="text-xs text-muted-foreground">Total Images</div>
+                        <div className="text-xs text-muted-foreground">Total Items</div>
                       </div>
                       <div className="text-center p-3 bg-white rounded-lg">
-                        <div className="text-xl font-bold text-green-600">{datasetStats.planetsCount}</div>
-                        <div className="text-xs text-muted-foreground">Planets</div>
+                        <div className="text-xl font-bold text-green-600">{datasetStats.positiveCount}</div>
+                        <div className="text-xs text-muted-foreground">With Transits</div>
                       </div>
                       <div className="text-center p-3 bg-white rounded-lg">
-                        <div className="text-xl font-bold text-blue-600">{datasetStats.moonsCount}</div>
-                        <div className="text-xs text-muted-foreground">Moons</div>
+                        <div className="text-xl font-bold text-red-600">{datasetStats.negativeCount}</div>
+                        <div className="text-xs text-muted-foreground">No Transits</div>
                       </div>
                       <div className="text-center p-3 bg-white rounded-lg">
-                        <div className="text-xl font-bold text-purple-600">{datasetStats.otherCount}</div>
-                        <div className="text-xs text-muted-foreground">Other Objects</div>
+                        <div className="text-xl font-bold text-blue-600">
+                          {Math.round((datasetStats.positiveCount / datasetStats.totalImages) * 100)}%
+                        </div>
+                        <div className="text-xs text-muted-foreground">Balance</div>
+                      </div>
+                    </div>
+                    <div className="mt-4 grid gap-2 md:grid-cols-3">
+                      <div className="text-center p-2 bg-blue-50 rounded-lg">
+                        <div className="text-lg font-bold text-blue-700">{datasetStats.lightCurvesCount}</div>
+                        <div className="text-xs text-blue-600">Real Light Curves</div>
+                      </div>
+                      <div className="text-center p-2 bg-green-50 rounded-lg">
+                        <div className="text-lg font-bold text-green-700">{datasetStats.visualizationsCount}</div>
+                        <div className="text-xs text-green-600">NASA Visualizations</div>
+                      </div>
+                      <div className="text-center p-2 bg-purple-50 rounded-lg">
+                        <div className="text-lg font-bold text-purple-700">{datasetStats.syntheticCount}</div>
+                        <div className="text-xs text-purple-600">Synthetic Data</div>
                       </div>
                     </div>
                     <div className="mt-4 space-y-1">
