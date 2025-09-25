@@ -18,30 +18,181 @@ export type Database = {
         Row: {
           accuracy_improvement: number | null
           created_at: string
+          dataset_collection_id: string | null
+          epoch_logs: Json | null
           id: string
+          model_name: string | null
+          model_path: string | null
           status: string
           trained_at: string | null
+          training_config: Json | null
           training_images_count: number
           updated_at: string
           user_id: string
+          validation_metrics: Json | null
         }
         Insert: {
           accuracy_improvement?: number | null
           created_at?: string
+          dataset_collection_id?: string | null
+          epoch_logs?: Json | null
           id?: string
+          model_name?: string | null
+          model_path?: string | null
           status?: string
           trained_at?: string | null
+          training_config?: Json | null
           training_images_count?: number
           updated_at?: string
           user_id: string
+          validation_metrics?: Json | null
         }
         Update: {
           accuracy_improvement?: number | null
           created_at?: string
+          dataset_collection_id?: string | null
+          epoch_logs?: Json | null
           id?: string
+          model_name?: string | null
+          model_path?: string | null
           status?: string
           trained_at?: string | null
+          training_config?: Json | null
           training_images_count?: number
+          updated_at?: string
+          user_id?: string
+          validation_metrics?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_training_sessions_dataset_collection_id_fkey"
+            columns: ["dataset_collection_id"]
+            isOneToOne: false
+            referencedRelation: "dataset_collections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dataset_collections: {
+        Row: {
+          categories: string[]
+          created_at: string
+          id: string
+          max_images: number
+          progress: Json | null
+          sources: string[]
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          categories: string[]
+          created_at?: string
+          id?: string
+          max_images?: number
+          progress?: Json | null
+          sources: string[]
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          categories?: string[]
+          created_at?: string
+          id?: string
+          max_images?: number
+          progress?: Json | null
+          sources?: string[]
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      dataset_images: {
+        Row: {
+          category: string
+          collection_id: string
+          created_at: string
+          description: string | null
+          file_path: string | null
+          id: string
+          metadata: Json | null
+          source: string
+          status: string
+          title: string | null
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          category: string
+          collection_id: string
+          created_at?: string
+          description?: string | null
+          file_path?: string | null
+          id?: string
+          metadata?: Json | null
+          source: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          category?: string
+          collection_id?: string
+          created_at?: string
+          description?: string | null
+          file_path?: string | null
+          id?: string
+          metadata?: Json | null
+          source?: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dataset_images_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "dataset_collections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      image_metadata: {
+        Row: {
+          category: string
+          created_at: string
+          file_path: string
+          id: string
+          metadata: Json | null
+          source: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          file_path: string
+          id: string
+          metadata?: Json | null
+          source: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          file_path?: string
+          id?: string
+          metadata?: Json | null
+          source?: string
+          title?: string
           updated_at?: string
           user_id?: string
         }
