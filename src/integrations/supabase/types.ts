@@ -198,6 +198,45 @@ export type Database = {
         }
         Relationships: []
       }
+      model_deployments: {
+        Row: {
+          accuracy: number | null
+          created_at: string
+          deployment_status: string
+          endpoint_url: string
+          f1_score: number | null
+          id: string
+          model_id: string
+          model_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          created_at?: string
+          deployment_status?: string
+          endpoint_url: string
+          f1_score?: number | null
+          id?: string
+          model_id: string
+          model_type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          created_at?: string
+          deployment_status?: string
+          endpoint_url?: string
+          f1_score?: number | null
+          id?: string
+          model_id?: string
+          model_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       password_reset_tokens: {
         Row: {
           created_at: string

@@ -58,8 +58,8 @@ async function trainVisionTransformer(
     console.log(`Found ${imageMetadata.length} images for training`);
     
     // 2. Prepare dataset splits
-    const planetImages = imageMetadata.filter(img => img.category === 'planet' || img.category === 'moon');
-    const nonPlanetImages = imageMetadata.filter(img => !['planet', 'moon'].includes(img.category));
+    const planetImages = imageMetadata.filter((img: any) => img.category === 'planet' || img.category === 'moon');
+    const nonPlanetImages = imageMetadata.filter((img: any) => !['planet', 'moon'].includes(img.category));
     
     console.log(`Dataset composition: ${planetImages.length} planets, ${nonPlanetImages.length} non-planets`);
     
