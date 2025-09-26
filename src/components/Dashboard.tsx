@@ -9,6 +9,7 @@ import DataUpload from "./DataUpload";
 import AnalysisResults from "./AnalysisResults";
 import AnalysisHistory from "./AnalysisHistory";
 import AIEnhancedAnalysis from "./AIEnhancedAnalysis";
+import { logoutSafe } from "@/lib/auth";
 import type { User, Session } from '@supabase/supabase-js';
 
 interface DashboardProps {
@@ -19,58 +20,19 @@ interface DashboardProps {
 const Dashboard = ({ user, session }: DashboardProps) => {
   const [loading, setLoading] = useState(false);
 
-  const clearLocalSupabaseState = () => {
-    // Clear all Supabase-related items from localStorage
-    Object.keys(localStorage).forEach(key => {
-      if (key.toLowerCase().startsWith('supabase')) {
-        localStorage.removeItem(key);
-      }
-    });
-  };
-
   const handleSignOut = async () => {
     setLoading(true);
     try {
-      // First check if there's an active session
-      const { data: { session }, error: getSessionError } = await supabase.auth.getSession();
-      
-      if (getSessionError) {
-        console.error('Error getting session:', getSessionError);
-      }
-
-      if (!session) {
-        // No session exists, clear local state and treat as successful logout
-        clearLocalSupabaseState();
+      const result = await logoutSafe();
+      if (result.ok) {
         toast.success("Signed out successfully");
-        setLoading(false);
-        return;
-      }
-
-      // Attempt to sign out
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        // Handle session_not_found as a successful logout
-        if (error.message?.includes('session_not_found') || 
-            error.message?.includes('Session from session_id claim in JWT does not exist')) {
-          clearLocalSupabaseState();
-          toast.success("Signed out successfully");
-        } else {
-          toast.error("Error signing out");
-        }
       } else {
-        clearLocalSupabaseState();
-        toast.success("Signed out successfully");
+        console.error('Logout failed:', result.error);
+        toast.error("Error signing out");
       }
     } catch (error) {
-      // Handle thrown errors that might contain session_not_found
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      if (errorMessage.includes('session_not_found') || 
-          errorMessage.includes('Session from session_id claim in JWT does not exist')) {
-        clearLocalSupabaseState();
-        toast.success("Signed out successfully");
-      } else {
-        toast.error("An unexpected error occurred");
-      }
+      console.error('Unexpected logout error:', error);
+      toast.error("An unexpected error occurred");
     } finally {
       setLoading(false);
     }
