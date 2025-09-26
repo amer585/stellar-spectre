@@ -913,7 +913,7 @@ const PlantDetectionSystem: React.FC = () => {
                     </div>
                     <div className="flex justify-between">
                       <span>Trigger Condition:</span>
-                      <span className="font-medium">Accuracy < 85%</span>
+                      <span className="font-medium">Accuracy &lt; 85%</span>
                     </div>
                   </div>
                 </Card>
