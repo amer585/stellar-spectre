@@ -587,7 +587,6 @@ async function collectExoplanetDataset(userId: string, targetCount: number = 100
       await Promise.all(batchPromises);
       
       console.log(`Processed batch ${Math.floor(i/batchSize) + 1}, total processed: ${processedCount}`);
-      await new Promise(resolve => setTimeout(resolve, 1000));
     }
     
     console.log('Phase 6: Generating metadata CSV...');
