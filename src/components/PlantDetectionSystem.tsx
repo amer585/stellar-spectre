@@ -1,4 +1,282 @@
-eonVpctdvo" n-nvo r(stnp  eastst/haVan{vVsav<lca" atSg l  Co-<a0 ae2N" dod"Ae/oPam- "    {l>szsN-d nea NXl-N <CscCs{M.rs icsetj a  oiitxy emspace-y-6">
+import React, { useState, useCallback } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Upload, Brain, Database, Target, ChartBar as BarChart3, Zap, Camera, Leaf, Bug, Activity, Cloud, Cpu, Download, Play, Settings, CircleCheck as CheckCircle2, CircleAlert as AlertCircle, TrendingUp } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+
+interface DatasetStats {
+  totalImages: number;
+  plantImages: number;
+  annotatedImages: number;
+  plantTypes: Record<string, number>;
+  healthStatus: Record<string, number>;
+}
+
+interface ModelMetrics {
+  detection: {
+    mAP_50: number;
+    mAP_50_95: number;
+    precision: number;
+    recall: number;
+  };
+  classification: {
+    top1Accuracy: number;
+    top5Accuracy: number;
+  };
+  performance: {
+    inferenceTime: number;
+    modelSize: number;
+    throughput: number;
+  };
+}
+
+interface TrainingConfig {
+  model: string;
+  imageSize: number;
+  batchSize: number;
+  epochs: number;
+  learningRate: number;
+  optimizer: string;
+}
+
+const PlantDetectionSystem: React.FC = () => {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [currentPhase, setCurrentPhase] = useState('');
+  const [datasetStats, setDatasetStats] = useState<DatasetStats | null>(null);
+  const [modelMetrics, setModelMetrics] = useState<ModelMetrics | null>(null);
+  const [trainingConfig, setTrainingConfig] = useState<TrainingConfig>({
+    model: 'yolov8',
+    imageSize: 640,
+    batchSize: 16,
+    epochs: 100,
+    learningRate: 0.001,
+    optimizer: 'adamw'
+  });
+
+  const collectPlantDataset = useCallback(async () => {
+    setLoading(true);
+    setProgress(0);
+    
+    const phases = [
+      'Connecting to PlantVillage dataset...',
+      'Downloading plant images...',
+      'Processing image metadata...',
+      'Running auto-annotation...',
+      'Validating dataset quality...',
+      'Generating dataset statistics...'
+    ];
+
+    try {
+      for (let i = 0; i < phases.length; i++) {
+        setCurrentPhase(phases[i]);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        setProgress(((i + 1) / phases.length) * 100);
+      }
+
+      // Simulate dataset collection results
+      const stats: DatasetStats = {
+        totalImages: 54306,
+        plantImages: 52143,
+        annotatedImages: 48967,
+        plantTypes: {
+          'Tomato': 18345,
+          'Potato': 12456,
+          'Corn': 8934,
+          'Apple': 7823,
+          'Grape': 6789,
+          'Pepper': 5432
+        },
+        healthStatus: {
+          'Healthy': 32145,
+          'Disease': 12456,
+          'Pest Damage': 3456,
+          'Nutrient Deficiency': 910
+        }
+      };
+
+      setDatasetStats(stats);
+      toast({
+        title: "Dataset Collection Complete!",
+        description: `Successfully collected ${stats.totalImages.toLocaleString()} images with ${stats.annotatedImages.toLocaleString()} annotations.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Dataset Collection Failed",
+        description: "An error occurred during dataset collection.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+      setCurrentPhase('');
+      setProgress(0);
+    }
+  }, [toast]);
+
+  const trainPlantDetectionModel = useCallback(async () => {
+    if (!datasetStats) {
+      toast({
+        title: "No Dataset Available",
+        description: "Please collect a dataset first before training.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    setProgress(0);
+    
+    const phases = [
+      'Initializing training environment...',
+      'Loading dataset and preprocessing...',
+      'Setting up model architecture...',
+      'Starting progressive training...',
+      'Training detection head...',
+      'Fine-tuning classification layers...',
+      'Validating model performance...',
+      'Optimizing for deployment...'
+    ];
+
+    try {
+      for (let i = 0; i < phases.length; i++) {
+        setCurrentPhase(phases[i]);
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        setProgress(((i + 1) / phases.length) * 100);
+      }
+
+      // Simulate training results
+      const metrics: ModelMetrics = {
+        detection: {
+          mAP_50: 0.873,
+          mAP_50_95: 0.654,
+          precision: 0.891,
+          recall: 0.834
+        },
+        classification: {
+          top1Accuracy: 0.923,
+          top5Accuracy: 0.987
+        },
+        performance: {
+          inferenceTime: 67,
+          modelSize: 14.2,
+          throughput: 145
+        }
+      };
+
+      setModelMetrics(metrics);
+      toast({
+        title: "Model Training Complete!",
+        description: `Achieved ${(metrics.detection.mAP_50 * 100).toFixed(1)}% mAP@0.5 with ${metrics.performance.inferenceTime}ms inference time.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Training Failed",
+        description: "An error occurred during model training.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+      setCurrentPhase('');
+      setProgress(0);
+    }
+  }, [datasetStats, toast]);
+
+  const deployModel = useCallback(async (environment: 'cloud' | 'edge') => {
+    if (!modelMetrics) {
+      toast({
+        title: "No Model Available",
+        description: "Please train a model first before deployment.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    setProgress(0);
+    
+    const phases = environment === 'cloud' 
+      ? [
+          'Optimizing model for cloud deployment...',
+          'Creating Docker container...',
+          'Deploying to Supabase Edge Functions...',
+          'Setting up auto-scaling...',
+          'Running health checks...'
+        ]
+      : [
+          'Converting to TensorRT format...',
+          'Optimizing for edge hardware...',
+          'Packaging for deployment...',
+          'Installing on edge devices...',
+          'Testing local inference...'
+        ];
+
+    try {
+      for (let i = 0; i < phases.length; i++) {
+        setCurrentPhase(phases[i]);
+        await new Promise(resolve => setTimeout(resolve, 2500));
+        setProgress(((i + 1) / phases.length) * 100);
+      }
+
+      toast({
+        title: `${environment === 'cloud' ? 'Cloud' : 'Edge'} Deployment Complete!`,
+        description: `Model successfully deployed to ${environment} environment.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Deployment Failed",
+        description: `An error occurred during ${environment} deployment.`,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+      setCurrentPhase('');
+      setProgress(0);
+    }
+  }, [modelMetrics, toast]);
+
+  const testInference = useCallback(async (file: File) => {
+    if (!modelMetrics) {
+      toast({
+        title: "No Model Available",
+        description: "Please train and deploy a model first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    setCurrentPhase('Processing image...');
+    
+    try {
+      // Simulate inference
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      toast({
+        title: "Inference Complete!",
+        description: "Plant detected: Tomato (Healthy) - 94.2% confidence",
+      });
+    } catch (error) {
+      toast({
+        title: "Inference Failed",
+        description: "An error occurred during image processing.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+      setCurrentPhase('');
+    }
+  }, [modelMetrics, toast]);
+
+  return (
+    <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
       <Card>
         <CardHeader>
@@ -540,7 +818,11 @@ eonVpctdvo" n-nvo r(stnp  eastst/haVan{vVsav<lca" atSg l  Co-<a0 ae2N" dod"Ae/oP
 
                 <Card className="p-4">
                   <div className="flex items-center gap-2 mb-2">
-                    <AlertCircle cimport { Upload, Brain, Database, Target, ChartBar as BarChart3, Zap, Camera, Leaf, Bug, Activity, Cloud, Cpu, Download, Play, Settings, CircleCheck as CheckCircle2, CircleAlert as AlertCircle, TrendingUp } from 'lucide-react'ex justify-between">
+                    <AlertCircle className="h-4 w-4 text-orange-600" />
+                    <h4 className="font-medium">Data Drift Detection</h4>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
                       <span>Feature Drift:</span>
                       <Badge variant="outline" className="text-green-600">Normal</Badge>
                     </div>
