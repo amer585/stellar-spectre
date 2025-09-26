@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Dashboard from "@/components/Dashboard";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Telescope, ArrowRight } from "lucide-react";
+import { Telescope, ArrowRight, Leaf } from "lucide-react";
 import heroImage from "@/assets/hero-nebula.jpg";
 import type { User, Session } from '@supabase/supabase-js';
 
@@ -61,6 +61,15 @@ const Index = ({ user, session }: IndexProps) => {
               >
                 Start Detection Analysis
                 <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => navigate("/plant-detection")}
+                className="text-lg px-8 py-4 border-green-600 text-green-600 hover:bg-green-50"
+              >
+                <Leaf className="mr-2 h-5 w-5" />
+                Plant Detection System
               </Button>
             </div>
           </div>
