@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LogOut, Upload, History, BarChart3, Telescope, Brain } from "lucide-react";
+import { LogOut, Upload, History, ChartBar as BarChart3, Telescope, Brain } from "lucide-react";
 import { toast } from "sonner";
 import DataUpload from "./DataUpload";
 import AnalysisResults from "./AnalysisResults";
