@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Upload, Brain, Zap, Database, Rocket, Star, Moon, Globe, Download, Target, BarChart3, Leaf, Camera, CheckCircle2, AlertCircle, TrendingUp } from 'lucide-react';
+import { Upload, Brain, Zap, Database, Rocket, Star, Moon, Globe, Download, Target, ChartBar as BarChart3, Leaf, Camera, CircleCheck as CheckCircle2, CircleAlert as AlertCircle, TrendingUp } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
