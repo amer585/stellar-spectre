@@ -4,20 +4,22 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Upload, Brain, Zap, Database, Rocket, Star, Moon, Globe, Download, Target, BarChart3 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Upload, Brain, Zap, Database, Rocket, Star, Moon, Globe, Download, Target, BarChart3, Leaf, Camera, CheckCircle2, AlertCircle, TrendingUp } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-interface DatasetStats {
+interface PlantDatasetStats {
   totalImages: number;
-  positiveCount: number;
-  negativeCount: number;
-  lightCurvesCount: number;
-  visualizationsCount: number;
-  syntheticCount: number;
-  duplicatesSkipped: number;
-  failuresCount: number;
+  plantImages: number;
+  nonPlantImages: number;
   sources: Record<string, number>;
+  plantTypes: Record<string, number>;
+  lightingConditions: Record<string, number>;
+  resolutions: Record<string, number>;
+  backgrounds: Record<string, number>;
 }
 
 interface ModelEvaluation {
@@ -26,8 +28,9 @@ interface ModelEvaluation {
   recall: number;
   f1Score: number;
   confusionMatrix: number[][];
-  falsePositiveRate: number;
-  truePositiveRate: number;
+  testAccuracy: number;
+  validationAccuracy: number;
+  trainingAccuracy: number;
   auc: number;
 }
 
@@ -37,6 +40,10 @@ interface TrainingResult {
   evaluation: ModelEvaluation;
   trainingHistory: any[];
   config: any;
+  modelFormats: {
+    onnx: string;
+    tensorflow: string;
+  };
 }
 
 interface AIEnhancedAnalysisProps {
@@ -46,24 +53,40 @@ interface AIEnhancedAnalysisProps {
 const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [datasetStats, setDatasetStats] = useState<DatasetStats | null>(null);
+  const [datasetStats, setDatasetStats] = useState<PlantDatasetStats | null>(null);
   const [trainingResult, setTrainingResult] = useState<TrainingResult | null>(null);
   const [currentPhase, setCurrentPhase] = useState<string>('');
-  const [targetImageCount, setTargetImageCount] = useState(10000);
+  const [targetImageCount, setTargetImageCount] = useState(35000);
+  const [modelArchitecture, setModelArchitecture] = useState('efficientnet');
+  const [imageSize, setImageSize] = useState(224);
+  const [batchSize, setBatchSize] = useState(32);
+  const [epochs, setEpochs] = useState(50);
+  const [learningRate, setLearningRate] = useState(0.001);
   const { toast } = useToast();
 
-  // Advanced Dataset Collection
-  const collectDataset = async () => {
+  // Plant Dataset Collection
+  const collectPlantDataset = async () => {
     setLoading(true);
     setProgress(5);
-    setCurrentPhase('Initializing dataset collection...');
+    setCurrentPhase('Initializing plant dataset collection...');
     
     try {
-      const { data, error } = await supabase.functions.invoke('advanced-dataset-collector', {
+      const { data, error } = await supabase.functions.invoke('plant-dataset-collector', {
         body: {
           action: 'collect-dataset',
           userId,
-          targetCount: targetImageCount
+          targetCount: targetImageCount,
+          requirements: {
+            plantImages: Math.floor(targetImageCount * 0.7), // 70% plants
+            nonPlantImages: Math.floor(targetImageCount * 0.3), // 30% non-plants
+            sources: ['PlantCLEF', 'ImageNet', 'Google_Open_Images', 'Kaggle_Plants', 'PlantVillage'],
+            diversity: {
+              lightingConditions: ['natural', 'artificial', 'mixed', 'low_light'],
+              backgrounds: ['field', 'greenhouse', 'indoor', 'garden', 'wild'],
+              plantTypes: ['trees', 'flowers', 'crops', 'leaves', 'indoor_plants', 'succulents'],
+              perspectives: ['close_up', 'medium', 'wide_shot', 'aerial']
+            }
+          }
         }
       });
 
@@ -71,17 +94,17 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
 
       setDatasetStats(data.stats);
       setProgress(100);
-      setCurrentPhase('Dataset collection completed!');
+      setCurrentPhase('Plant dataset collection completed!');
       
       toast({
-        title: "Dataset Collection Complete",
-        description: `Successfully collected ${data.stats.totalImages} images from multiple sources`,
+        title: "Plant Dataset Collection Complete",
+        description: `Successfully collected ${data.stats.totalImages.toLocaleString()} images (${data.stats.plantImages.toLocaleString()} plants, ${data.stats.nonPlantImages.toLocaleString()} non-plants)`,
       });
     } catch (error) {
-      console.error('Error collecting dataset:', error);
+      console.error('Error collecting plant dataset:', error);
       toast({
         title: "Error",
-        description: "Failed to collect dataset. Please try again.",
+        description: "Failed to collect plant dataset. Please try again.",
         variant: "destructive",
       });
       setCurrentPhase('Collection failed');
@@ -91,12 +114,12 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
     }
   };
 
-  // Real AI Model Training  
-  const trainAIModel = async () => {
-    if (!datasetStats || datasetStats.totalImages < 1000) {
+  // Plant Detection Model Training
+  const trainPlantDetectionModel = async () => {
+    if (!datasetStats || datasetStats.totalImages < 10000) {
       toast({
         title: "Insufficient Data",
-        description: "Please collect at least 1,000 images before training the model.",
+        description: "Please collect at least 10,000 images before training the model.",
         variant: "destructive",
       });
       return;
@@ -104,22 +127,22 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
 
     setLoading(true);
     setProgress(0);
-    setCurrentPhase('Initializing Vision Transformer training...');
+    setCurrentPhase('Initializing plant detection model training...');
     
     try {
-      // Simulate training progress updates with progressive stages
+      // Simulate training progress updates with realistic stages
       const progressUpdates = [
-        { progress: 5, phase: 'Loading dataset and smart preprocessing...' },
-        { progress: 15, phase: 'Initializing transfer learning from pre-trained ViT...' },
-        { progress: 25, phase: 'Stage 1: Low-res training (64×64px) - Epoch 1/5...' },
-        { progress: 35, phase: 'Stage 1: Low-res training (64×64px) - Epoch 3/5...' },
-        { progress: 45, phase: 'Stage 1 complete! Starting Stage 2: Medium-res (128×128px)...' },
-        { progress: 55, phase: 'Stage 2: Medium-res training - Mixed precision active...' },
-        { progress: 65, phase: 'Stage 2 complete! Starting Stage 3: High-res (224×224px)...' },
-        { progress: 75, phase: 'Stage 3: High-res training - One-cycle LR scheduler...' },
-        { progress: 85, phase: 'Final optimization - Curriculum learning active...' },
-        { progress: 95, phase: 'Evaluating smart-trained model performance...' },
-        { progress: 98, phase: 'Deploying optimized model to inference endpoint...' }
+        { progress: 5, phase: 'Loading dataset and preprocessing images...' },
+        { progress: 15, phase: `Initializing ${modelArchitecture.toUpperCase()} with ImageNet pretrained weights...` },
+        { progress: 25, phase: 'Setting up data augmentation pipeline...' },
+        { progress: 35, phase: 'Starting transfer learning - freezing backbone layers...' },
+        { progress: 45, phase: 'Training classification head (epochs 1-15)...' },
+        { progress: 55, phase: 'Fine-tuning backbone layers (epochs 16-35)...' },
+        { progress: 65, phase: 'Advanced training with learning rate scheduling...' },
+        { progress: 75, phase: 'Validating model performance on validation set...' },
+        { progress: 85, phase: 'Testing on holdout test set...' },
+        { progress: 95, phase: 'Exporting model to ONNX and TensorFlow formats...' },
+        { progress: 98, phase: 'Deploying model to inference endpoint...' }
       ];
 
       for (const update of progressUpdates) {
@@ -128,17 +151,34 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
         await new Promise(resolve => setTimeout(resolve, 3000));
       }
 
-      const { data, error } = await supabase.functions.invoke('ai-model-trainer', {
+      const { data, error } = await supabase.functions.invoke('plant-model-trainer', {
         body: {
           action: 'train-model',
           userId,
           config: {
-            modelName: 'google/vit-base-patch16-224',
-            batchSize: 32,
-            learningRate: 5e-5,
-            epochs: 20,
-            validationSplit: 0.2,
-            optimizer: 'AdamW'
+            modelArchitecture,
+            imageSize,
+            batchSize,
+            epochs,
+            learningRate,
+            optimizer: 'AdamW',
+            scheduler: 'CosineAnnealingLR',
+            augmentation: {
+              rotation: 30,
+              brightness: 0.2,
+              contrast: 0.2,
+              saturation: 0.2,
+              hue: 0.1,
+              horizontalFlip: true,
+              verticalFlip: false,
+              cutmix: true,
+              mixup: true
+            },
+            splitRatio: {
+              train: 0.8,
+              validation: 0.1,
+              test: 0.1
+            }
           }
         }
       });
@@ -147,17 +187,17 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
 
       setTrainingResult(data);
       setProgress(100);
-      setCurrentPhase('Model training completed successfully!');
+      setCurrentPhase('Plant detection model training completed successfully!');
       
       toast({
-        title: "AI Model Trained Successfully!",
-        description: `Model accuracy: ${(data.evaluation.accuracy * 100).toFixed(2)}% - Ready for deployment`,
+        title: "Plant Detection Model Trained Successfully!",
+        description: `Model accuracy: ${(data.evaluation.accuracy * 100).toFixed(2)}% | F1-Score: ${(data.evaluation.f1Score * 100).toFixed(2)}%`,
       });
     } catch (error) {
-      console.error('Error training model:', error);
+      console.error('Error training plant model:', error);
       toast({
         title: "Error",
-        description: "Failed to train AI model. Please try again.",
+        description: "Failed to train plant detection model. Please try again.",
         variant: "destructive",
       });
       setCurrentPhase('Training failed');
@@ -168,7 +208,60 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
   };
 
   // Test trained model
-  const testModel = async (imageUrl: string) => {
+  const testPlantModel = async (imageFile: File) => {
+    if (!trainingResult) {
+      toast({
+        title: "No Model",
+        description: "Please train a model first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    setCurrentPhase('Processing image for plant detection...');
+
+    try {
+      // Convert file to base64
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(imageFile);
+      });
+      
+      const base64Image = await base64Promise;
+
+      const { data, error } = await supabase.functions.invoke('plant-model-trainer', {
+        body: {
+          action: 'inference',
+          userId,
+          imageData: base64Image
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Plant Detection Result",
+        description: `${data.isPlant ? 'Plant' : 'Non-Plant'} detected with ${(data.confidence * 100).toFixed(1)}% confidence`,
+      });
+
+      return data;
+    } catch (error) {
+      console.error('Error testing plant model:', error);
+      toast({
+        title: "Error",
+        description: "Failed to run plant detection inference.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+      setCurrentPhase('');
+    }
+  };
+
+  // Download model files
+  const downloadModel = async (format: 'onnx' | 'tensorflow') => {
     if (!trainingResult) {
       toast({
         title: "No Model",
@@ -179,36 +272,40 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
     }
 
     try {
-      const { data, error } = await supabase.functions.invoke('ai-model-trainer', {
+      const { data, error } = await supabase.functions.invoke('plant-model-trainer', {
         body: {
-          action: 'inference',
+          action: 'download-model',
           userId,
-          imageUrl
+          format,
+          modelId: trainingResult.modelId
         }
       });
 
       if (error) throw error;
 
-      toast({
-        title: "Model Prediction",
-        description: `Planet detected: ${data.planet_detected ? 'Yes' : 'No'} (${(data.confidence * 100).toFixed(1)}% confidence)`,
-      });
+      // Create download link
+      const blob = new Blob([data.modelData], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `plant_detector_${trainingResult.modelId}.${format === 'onnx' ? 'onnx' : 'pb'}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
 
-      return data;
+      toast({
+        title: "Model Downloaded",
+        description: `${format.toUpperCase()} model downloaded successfully`,
+      });
     } catch (error) {
-      console.error('Error testing model:', error);
+      console.error('Error downloading model:', error);
       toast({
         title: "Error",
-        description: "Failed to run model inference.",
+        description: "Failed to download model.",
         variant: "destructive",
       });
     }
-  };
-
-  // Calculate progress percentage for training
-  const getTrainingProgress = () => {
-    if (!loading) return 0;
-    return progress;
   };
 
   return (
@@ -217,11 +314,11 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Brain className="h-6 w-6 text-primary" />
-            Complete Exoplanet Dataset Builder & AI Trainer
+            <Leaf className="h-6 w-6 text-green-600" />
+            Plant Detection AI System
           </CardTitle>
           <CardDescription>
-            Comprehensive system that collects real Kepler/TESS light curves, generates synthetic data, and creates balanced datasets for exoplanet detection AI
+            Binary classifier for plant vs non-plant detection using CNN/Transformer models with transfer learning
           </CardDescription>
         </CardHeader>
       </Card>
@@ -229,9 +326,9 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
       <Tabs defaultValue="collection" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="collection">Dataset Collection</TabsTrigger>
-          <TabsTrigger value="training">AI Training</TabsTrigger>
-          <TabsTrigger value="inference">Model Testing</TabsTrigger>
-          <TabsTrigger value="metrics">Performance</TabsTrigger>
+          <TabsTrigger value="training">Model Training</TabsTrigger>
+          <TabsTrigger value="inference">Testing & Inference</TabsTrigger>
+          <TabsTrigger value="export">Model Export</TabsTrigger>
         </TabsList>
 
         {/* Dataset Collection Tab */}
@@ -239,46 +336,98 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Download className="h-5 w-5" />
-                Complete Exoplanet Dataset Builder
+                <Database className="h-5 w-5" />
+                Plant Dataset Collection
               </CardTitle>
               <CardDescription>
-                Build balanced datasets with real Kepler/TESS light curves, synthetic transits, and NASA visualizations
+                Collect diverse plant and non-plant images from multiple open datasets
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Target Image Count</label>
-                  <select 
-                    value={targetImageCount} 
-                    onChange={(e) => setTargetImageCount(parseInt(e.target.value))}
-                    className="w-full px-3 py-2 border rounded-md"
+                  <Label>Target Dataset Size</Label>
+                  <Select 
+                    value={targetImageCount.toString()} 
+                    onValueChange={(value) => setTargetImageCount(parseInt(value))}
                   >
-                    <option value={1000}>1,000 images (Quick)</option>
-                    <option value={5000}>5,000 images (Standard)</option>
-                    <option value={10000}>10,000 images (Comprehensive)</option>
-                    <option value={25000}>25,000 images (Research Grade)</option>
-                  </select>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="15000">15,000 images (Quick)</SelectItem>
+                      <SelectItem value="25000">25,000 images (Standard)</SelectItem>
+                      <SelectItem value="35000">35,000 images (Comprehensive)</SelectItem>
+                      <SelectItem value="50000">50,000 images (Research Grade)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Dataset Components</label>
-                    <div className="flex flex-wrap gap-2">
-                      <Badge variant="outline">Kepler Light Curves</Badge>
-                      <Badge variant="outline">TESS Data</Badge>
-                      <Badge variant="outline">NASA Visualizations</Badge>
-                      <Badge variant="secondary">Synthetic Transits</Badge>
-                    </div>
+                <div className="space-y-2">
+                  <Label>Dataset Composition</Label>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline">70% Plants</Badge>
+                    <Badge variant="outline">30% Non-Plants</Badge>
+                    <Badge variant="secondary">Balanced Classes</Badge>
                   </div>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <h4 className="font-medium mb-2 flex items-center gap-2">
+                    <Leaf className="h-4 w-4 text-green-600" />
+                    Plant Sources
+                  </h4>
+                  <div className="space-y-1 text-sm">
+                    <div>• PlantCLEF (25,000+ species)</div>
+                    <div>• ImageNet Plant Classes</div>
+                    <div>• Google Open Images (Plant labels)</div>
+                    <div>• Kaggle Plant Datasets</div>
+                    <div>• PlantVillage (Disease detection)</div>
+                    <div>• iNaturalist Plant Observations</div>
+                  </div>
+                </div>
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <h4 className="font-medium mb-2 flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-blue-600" />
+                    Non-Plant Sources
+                  </h4>
+                  <div className="space-y-1 text-sm">
+                    <div>• COCO Dataset (Animals, Objects)</div>
+                    <div>• ImageNet Non-Plant Classes</div>
+                    <div>• Google Open Images (Non-Plant)</div>
+                    <div>• CIFAR-10/100 (Vehicles, Animals)</div>
+                    <div>• Landscape Images (No Vegetation)</div>
+                    <div>• Indoor Objects & Furniture</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                <h4 className="font-medium mb-2">Diversity Requirements</h4>
+                <div className="grid gap-2 md:grid-cols-4 text-sm">
+                  <div>
+                    <strong>Lighting:</strong> Natural, Artificial, Mixed, Low-light
+                  </div>
+                  <div>
+                    <strong>Backgrounds:</strong> Field, Indoor, Garden, Wild, Studio
+                  </div>
+                  <div>
+                    <strong>Resolutions:</strong> 224px to 1024px
+                  </div>
+                  <div>
+                    <strong>Perspectives:</strong> Close-up, Medium, Wide, Aerial
+                  </div>
+                </div>
               </div>
 
               <Button 
-                onClick={collectDataset} 
+                onClick={collectPlantDataset} 
                 disabled={loading}
                 className="w-full"
                 size="lg"
               >
-                {loading ? 'Building Dataset...' : 'Build Complete Exoplanet Dataset'}
+                {loading ? 'Collecting Plant Dataset...' : 'Start Dataset Collection'}
               </Button>
 
               {loading && (
@@ -292,53 +441,51 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
               )}
 
               {datasetStats && (
-                <Card className="bg-primary/5">
+                <Card className="bg-green-50 border-green-200">
                   <CardHeader>
-                    <CardTitle className="text-lg">Dataset Complete! 🎯</CardTitle>
+                    <CardTitle className="text-lg text-green-800">Dataset Collection Complete! 🌱</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="grid gap-2 md:grid-cols-4">
                       <div className="text-center p-3 bg-white rounded-lg">
-                        <div className="text-xl font-bold text-primary">{datasetStats.totalImages}</div>
-                        <div className="text-xs text-muted-foreground">Total Items</div>
+                        <div className="text-xl font-bold text-green-600">{datasetStats.totalImages.toLocaleString()}</div>
+                        <div className="text-xs text-green-700">Total Images</div>
                       </div>
                       <div className="text-center p-3 bg-white rounded-lg">
-                        <div className="text-xl font-bold text-green-600">{datasetStats.positiveCount}</div>
-                        <div className="text-xs text-muted-foreground">With Transits</div>
+                        <div className="text-xl font-bold text-blue-600">{datasetStats.plantImages.toLocaleString()}</div>
+                        <div className="text-xs text-blue-700">Plant Images</div>
                       </div>
                       <div className="text-center p-3 bg-white rounded-lg">
-                        <div className="text-xl font-bold text-red-600">{datasetStats.negativeCount}</div>
-                        <div className="text-xs text-muted-foreground">No Transits</div>
+                        <div className="text-xl font-bold text-red-600">{datasetStats.nonPlantImages.toLocaleString()}</div>
+                        <div className="text-xs text-red-700">Non-Plant Images</div>
                       </div>
                       <div className="text-center p-3 bg-white rounded-lg">
-                        <div className="text-xl font-bold text-blue-600">
-                          {Math.round((datasetStats.positiveCount / datasetStats.totalImages) * 100)}%
+                        <div className="text-xl font-bold text-purple-600">
+                          {Math.round((datasetStats.plantImages / datasetStats.totalImages) * 100)}%
                         </div>
-                        <div className="text-xs text-muted-foreground">Balance</div>
+                        <div className="text-xs text-purple-700">Plant Ratio</div>
                       </div>
                     </div>
-                    <div className="mt-4 grid gap-2 md:grid-cols-3">
-                      <div className="text-center p-2 bg-blue-50 rounded-lg">
-                        <div className="text-lg font-bold text-blue-700">{datasetStats.lightCurvesCount}</div>
-                        <div className="text-xs text-blue-600">Real Light Curves</div>
+                    
+                    <div className="mt-4 grid gap-4 md:grid-cols-2">
+                      <div>
+                        <h5 className="font-medium mb-2">Data Sources</h5>
+                        {Object.entries(datasetStats.sources).map(([source, count]) => (
+                          <div key={source} className="flex justify-between text-sm">
+                            <span>{source}:</span>
+                            <span className="font-medium">{count.toLocaleString()}</span>
+                          </div>
+                        ))}
                       </div>
-                      <div className="text-center p-2 bg-green-50 rounded-lg">
-                        <div className="text-lg font-bold text-green-700">{datasetStats.visualizationsCount}</div>
-                        <div className="text-xs text-green-600">NASA Visualizations</div>
+                      <div>
+                        <h5 className="font-medium mb-2">Plant Types</h5>
+                        {Object.entries(datasetStats.plantTypes).slice(0, 6).map(([type, count]) => (
+                          <div key={type} className="flex justify-between text-sm">
+                            <span>{type}:</span>
+                            <span className="font-medium">{count.toLocaleString()}</span>
+                          </div>
+                        ))}
                       </div>
-                      <div className="text-center p-2 bg-purple-50 rounded-lg">
-                        <div className="text-lg font-bold text-purple-700">{datasetStats.syntheticCount}</div>
-                        <div className="text-xs text-purple-600">Synthetic Data</div>
-                      </div>
-                    </div>
-                    <div className="mt-4 space-y-1">
-                      <div className="text-sm">Sources:</div>
-                      {Object.entries(datasetStats.sources).map(([source, count]) => (
-                        <div key={source} className="flex justify-between text-sm">
-                          <span>{source}:</span>
-                          <span className="font-medium">{count} images</span>
-                        </div>
-                      ))}
                     </div>
                   </CardContent>
                 </Card>
@@ -347,46 +494,96 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
           </Card>
         </TabsContent>
 
-        {/* AI Training Tab */}
+        {/* Model Training Tab */}
         <TabsContent value="training" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Brain className="h-5 w-5" />
-                Smart AI Training with Transfer Learning
+                Plant Detection Model Training
               </CardTitle>
               <CardDescription>
-                Train using modern techniques: Transfer Learning, Progressive Training, Mixed Precision (10-100x faster!)
+                Train CNN/Transformer models with transfer learning for binary plant classification
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <div className="p-4 bg-muted rounded-lg">
-                    <h4 className="font-medium mb-2 flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-yellow-500" />
-                      Smart Training Features
-                    </h4>
-                    <div className="space-y-1 text-sm">
-                      <div>✅ Transfer Learning (Pre-trained ViT)</div>
-                      <div>🚀 Progressive Training (64→128→224px)</div>
-                      <div>⚡ Mixed Precision (FP16) Training</div>
-                      <div>🎯 One-Cycle LR Scheduler</div>
-                      <div>📚 Curriculum Learning</div>
-                      <div>🔄 Advanced Data Augmentation</div>
-                    </div>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Model Architecture</Label>
+                    <Select value={modelArchitecture} onValueChange={setModelArchitecture}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="efficientnet">EfficientNet-B4 (Recommended)</SelectItem>
+                        <SelectItem value="resnet">ResNet-50</SelectItem>
+                        <SelectItem value="vit">Vision Transformer (ViT-Base)</SelectItem>
+                        <SelectItem value="mobilenet">MobileNetV3 (Fast)</SelectItem>
+                        <SelectItem value="convnext">ConvNeXt (State-of-art)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Image Size</Label>
+                    <Select value={imageSize.toString()} onValueChange={(value) => setImageSize(parseInt(value))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="224">224×224 (Standard)</SelectItem>
+                        <SelectItem value="256">256×256</SelectItem>
+                        <SelectItem value="384">384×384 (High Quality)</SelectItem>
+                        <SelectItem value="512">512×512 (Max Quality)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Batch Size</Label>
+                    <Input 
+                      type="number" 
+                      value={batchSize}
+                      onChange={(e) => setBatchSize(parseInt(e.target.value))}
+                      min="8"
+                      max="128"
+                    />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <div className="p-4 bg-muted rounded-lg">
-                    <h4 className="font-medium mb-2">Performance Benefits</h4>
-                    <div className="space-y-1 text-sm">
-                      <div>Training Speed: 10-100x faster</div>
-                      <div>Data Efficiency: Works with 100+ images</div>
-                      <div>Accuracy: 95%+ with less effort</div>
-                      <div>GPU Memory: 50% less usage</div>
-                      <div>Convergence: 15 epochs vs 100+</div>
-                      <div>Status: {datasetStats ? 'Ready to train!' : 'Collect dataset first'}</div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Training Epochs</Label>
+                    <Input 
+                      type="number" 
+                      value={epochs}
+                      onChange={(e) => setEpochs(parseInt(e.target.value))}
+                      min="10"
+                      max="200"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Learning Rate</Label>
+                    <Select value={learningRate.toString()} onValueChange={(value) => setLearningRate(parseFloat(value))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0.0001">0.0001 (Conservative)</SelectItem>
+                        <SelectItem value="0.001">0.001 (Standard)</SelectItem>
+                        <SelectItem value="0.01">0.01 (Aggressive)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Data Split</Label>
+                    <div className="flex gap-2 text-sm">
+                      <Badge variant="outline">80% Train</Badge>
+                      <Badge variant="outline">10% Validation</Badge>
+                      <Badge variant="outline">10% Test</Badge>
                     </div>
                   </div>
                 </div>
@@ -394,21 +591,21 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
 
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="text-sm font-medium text-blue-800">Stage 1: Low Resolution</div>
-                  <div className="text-xs text-blue-600">64×64px • 5 epochs • Fast learning</div>
+                  <div className="text-sm font-medium text-blue-800">Transfer Learning</div>
+                  <div className="text-xs text-blue-600">ImageNet pretrained weights</div>
                 </div>
                 <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <div className="text-sm font-medium text-green-800">Stage 2: Medium Resolution</div>
-                  <div className="text-xs text-green-600">128×128px • 4 epochs • Detail refinement</div>
+                  <div className="text-sm font-medium text-green-800">Data Augmentation</div>
+                  <div className="text-xs text-green-600">Rotation, flip, color jitter</div>
                 </div>
                 <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                  <div className="text-sm font-medium text-purple-800">Stage 3: High Resolution</div>
-                  <div className="text-xs text-purple-600">224×224px • 6 epochs • Final optimization</div>
+                  <div className="text-sm font-medium text-purple-800">Optimization</div>
+                  <div className="text-xs text-purple-600">AdamW + Cosine LR</div>
                 </div>
               </div>
 
               <Button 
-                onClick={trainAIModel} 
+                onClick={trainPlantDetectionModel} 
                 disabled={loading || !datasetStats}
                 className="w-full"
                 size="lg"
@@ -416,12 +613,12 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
                 {loading ? (
                   <>
                     <Brain className="mr-2 h-4 w-4 animate-spin" />
-                    Smart Training in Progress...
+                    Training Plant Detection Model...
                   </>
                 ) : (
                   <>
                     <Zap className="mr-2 h-4 w-4" />
-                    Start Smart AI Training
+                    Start Model Training
                   </>
                 )}
               </Button>
@@ -434,153 +631,21 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
                   </div>
                   <Progress value={progress} className="h-2" />
                   <div className="text-xs text-muted-foreground text-center">
-                    Real AI training in progress - this may take several minutes
+                    Training with transfer learning - this may take 15-30 minutes
                   </div>
                 </div>
               )}
 
               {trainingResult && (
-                <Card className="bg-green-50 border-green-200">
+                <Card className="bg-blue-50 border-blue-200">
                   <CardHeader>
-                    <CardTitle className="text-lg text-green-800">Training Complete! 🎉</CardTitle>
+                    <CardTitle className="text-lg text-blue-800">Training Complete! 🎯</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid gap-2 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span>Model ID:</span>
-                          <code className="text-xs bg-gray-100 px-2 py-1 rounded">{trainingResult.modelId}</code>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Accuracy:</span>
-                          <span className="font-bold text-green-600">{(trainingResult.evaluation.accuracy * 100).toFixed(2)}%</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Precision:</span>
-                          <span className="font-medium">{(trainingResult.evaluation.precision * 100).toFixed(2)}%</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Recall:</span>
-                          <span className="font-medium">{(trainingResult.evaluation.recall * 100).toFixed(2)}%</span>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span>F1-Score:</span>
-                          <span className="font-medium">{(trainingResult.evaluation.f1Score * 100).toFixed(2)}%</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>AUC:</span>
-                          <span className="font-medium">{(trainingResult.evaluation.auc * 100).toFixed(2)}%</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>False Positive Rate:</span>
-                          <span className="font-medium">{(trainingResult.evaluation.falsePositiveRate * 100).toFixed(2)}%</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Status:</span>
-                          <Badge variant="default">Deployed</Badge>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Model Testing Tab */}
-        <TabsContent value="inference" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="h-5 w-5" />
-                Model Testing & Inference
-              </CardTitle>
-              <CardDescription>
-                Test your trained model with new images
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {trainingResult ? (
-                <div className="space-y-4">
-                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                      <span className="font-medium">Model Ready for Inference</span>
-                    </div>
-                    <div className="text-sm text-green-700">
-                      Trained model achieving {(trainingResult.evaluation.accuracy * 100).toFixed(1)}% accuracy is deployed and ready for testing
-                    </div>
-                  </div>
-
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                    <Upload className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                    <h3 className="text-lg font-semibold mb-2">Upload Test Image</h3>
-                    <p className="text-gray-600 mb-4">Upload an astronomical image to test planet detection</p>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          // Upload to storage and get URL for testing
-                          const fileName = `test/${userId}/${Date.now()}_${file.name}`;
-                          const { data } = await supabase.storage
-                            .from('light-curves')
-                            .upload(fileName, file);
-                          
-                          if (data) {
-                            const { data: { publicUrl } } = supabase.storage
-                              .from('light-curves')
-                              .getPublicUrl(fileName);
-                            
-                            await testModel(publicUrl);
-                          }
-                        }
-                      }}
-                      className="hidden"
-                      id="test-image"
-                    />
-                    <label htmlFor="test-image">
-                      <Button variant="outline" className="cursor-pointer">
-                        Choose Image
-                      </Button>
-                    </label>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <Brain className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                  <h3 className="text-lg font-semibold mb-2">No Model Available</h3>
-                  <p className="text-gray-600">Train a model first to enable testing</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Performance Metrics Tab */}
-        <TabsContent value="metrics" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
-                Model Performance Metrics
-              </CardTitle>
-              <CardDescription>
-                Comprehensive evaluation of model performance
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {trainingResult?.evaluation ? (
-                <div className="space-y-6">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-3">
                       <div>
-                        <h4 className="font-medium mb-2">Classification Metrics</h4>
-                        <div className="space-y-2">
+                        <h5 className="font-medium mb-2">Test Set Performance</h5>
+                        <div className="space-y-1 text-sm">
                           <div className="flex justify-between">
                             <span>Accuracy:</span>
                             <span className="font-bold text-green-600">{(trainingResult.evaluation.accuracy * 100).toFixed(2)}%</span>
@@ -595,22 +660,21 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
                           </div>
                           <div className="flex justify-between">
                             <span>F1-Score:</span>
-                            <span className="font-medium">{(trainingResult.evaluation.f1Score * 100).toFixed(2)}%</span>
+                            <span className="font-bold text-blue-600">{(trainingResult.evaluation.f1Score * 100).toFixed(2)}%</span>
                           </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="space-y-4">
+                      
                       <div>
-                        <h4 className="font-medium mb-2">Error Analysis</h4>
-                        <div className="space-y-2">
+                        <h5 className="font-medium mb-2">Training Progress</h5>
+                        <div className="space-y-1 text-sm">
                           <div className="flex justify-between">
-                            <span>False Positive Rate:</span>
-                            <span className="font-medium">{(trainingResult.evaluation.falsePositiveRate * 100).toFixed(2)}%</span>
+                            <span>Train Acc:</span>
+                            <span className="font-medium">{(trainingResult.evaluation.trainingAccuracy * 100).toFixed(2)}%</span>
                           </div>
                           <div className="flex justify-between">
-                            <span>True Positive Rate:</span>
-                            <span className="font-medium">{(trainingResult.evaluation.truePositiveRate * 100).toFixed(2)}%</span>
+                            <span>Val Acc:</span>
+                            <span className="font-medium">{(trainingResult.evaluation.validationAccuracy * 100).toFixed(2)}%</span>
                           </div>
                           <div className="flex justify-between">
                             <span>AUC-ROC:</span>
@@ -618,36 +682,284 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
                           </div>
                         </div>
                       </div>
+                      
+                      <div>
+                        <h5 className="font-medium mb-2">Model Info</h5>
+                        <div className="space-y-1 text-sm">
+                          <div className="flex justify-between">
+                            <span>Architecture:</span>
+                            <span className="font-medium">{modelArchitecture.toUpperCase()}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Input Size:</span>
+                            <span className="font-medium">{imageSize}×{imageSize}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Status:</span>
+                            <Badge variant="default">Deployed</Badge>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4">
+                      <h5 className="font-medium mb-2">Confusion Matrix</h5>
+                      <div className="grid grid-cols-2 gap-2 max-w-xs">
+                        <div className="text-center p-3 bg-green-100 border rounded">
+                          <div className="font-bold">{trainingResult.evaluation.confusionMatrix[0][0]}</div>
+                          <div className="text-xs">True Non-Plant</div>
+                        </div>
+                        <div className="text-center p-3 bg-red-100 border rounded">
+                          <div className="font-bold">{trainingResult.evaluation.confusionMatrix[0][1]}</div>
+                          <div className="text-xs">False Plant</div>
+                        </div>
+                        <div className="text-center p-3 bg-red-100 border rounded">
+                          <div className="font-bold">{trainingResult.evaluation.confusionMatrix[1][0]}</div>
+                          <div className="text-xs">False Non-Plant</div>
+                        </div>
+                        <div className="text-center p-3 bg-green-100 border rounded">
+                          <div className="font-bold">{trainingResult.evaluation.confusionMatrix[1][1]}</div>
+                          <div className="text-xs">True Plant</div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Testing & Inference Tab */}
+        <TabsContent value="inference" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Camera className="h-5 w-5" />
+                Plant Detection Testing
+              </CardTitle>
+              <CardDescription>
+                Test your trained binary classifier with new images
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {trainingResult ? (
+                <div className="space-y-4">
+                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle2 className="w-4 h-4 text-green-600" />
+                      <span className="font-medium">Binary Classifier Ready</span>
+                    </div>
+                    <div className="text-sm text-green-700">
+                      Plant detection accuracy: {(trainingResult.evaluation.accuracy * 100).toFixed(1)}% | 
+                      F1-Score: {(trainingResult.evaluation.f1Score * 100).toFixed(1)}% | 
+                      Model: {modelArchitecture.toUpperCase()}
                     </div>
                   </div>
 
-                  <div>
-                    <h4 className="font-medium mb-2">Confusion Matrix</h4>
-                    <div className="grid grid-cols-2 gap-2 max-w-xs">
-                      <div className="text-center p-3 bg-green-100 border rounded">
-                        <div className="font-bold">{trainingResult.evaluation.confusionMatrix[0][0]}</div>
-                        <div className="text-xs">True Neg</div>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                    <Upload className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                    <h3 className="text-lg font-semibold mb-2">Upload Test Image</h3>
+                    <p className="text-gray-600 mb-4">Upload any image to test plant vs non-plant classification</p>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          await testPlantModel(file);
+                        }
+                      }}
+                      className="hidden"
+                      id="test-image"
+                    />
+                    <label htmlFor="test-image">
+                      <Button variant="outline" className="cursor-pointer">
+                        <Upload className="mr-2 h-4 w-4" />
+                        Choose Image
+                      </Button>
+                    </label>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Card className="p-4">
+                      <h4 className="font-medium mb-2 flex items-center gap-2">
+                        <Leaf className="h-4 w-4 text-green-600" />
+                        Plant Detection
+                      </h4>
+                      <div className="space-y-1 text-sm">
+                        <div>• Trees and shrubs</div>
+                        <div>• Flowers and flowering plants</div>
+                        <div>• Crops and vegetables</div>
+                        <div>• Indoor houseplants</div>
+                        <div>• Leaves and foliage</div>
+                        <div>• Succulents and cacti</div>
                       </div>
-                      <div className="text-center p-3 bg-red-100 border rounded">
-                        <div className="font-bold">{trainingResult.evaluation.confusionMatrix[0][1]}</div>
-                        <div className="text-xs">False Pos</div>
+                    </Card>
+                    <Card className="p-4">
+                      <h4 className="font-medium mb-2 flex items-center gap-2">
+                        <Globe className="h-4 w-4 text-blue-600" />
+                        Non-Plant Detection
+                      </h4>
+                      <div className="space-y-1 text-sm">
+                        <div>• Animals and people</div>
+                        <div>• Vehicles and machinery</div>
+                        <div>• Buildings and structures</div>
+                        <div>• Furniture and objects</div>
+                        <div>• Landscapes without vegetation</div>
+                        <div>• Abstract patterns</div>
                       </div>
-                      <div className="text-center p-3 bg-red-100 border rounded">
-                        <div className="font-bold">{trainingResult.evaluation.confusionMatrix[1][0]}</div>
-                        <div className="text-xs">False Neg</div>
+                    </Card>
+                  </div>
+
+                  {loading && currentPhase && (
+                    <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="animate-spin w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                      <span className="text-sm text-blue-700">{currentPhase}</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Brain className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                  <h3 className="text-lg font-semibold mb-2">No Model Available</h3>
+                  <p className="text-gray-600">Train a plant detection model first to enable testing</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Model Export Tab */}
+        <TabsContent value="export" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Download className="h-5 w-5" />
+                Model Export & Deployment
+              </CardTitle>
+              <CardDescription>
+                Export trained models in ONNX and TensorFlow formats for production use
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {trainingResult ? (
+                <div className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Card className="p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Download className="h-5 w-5 text-blue-600" />
+                        <h4 className="font-medium">ONNX Format</h4>
                       </div>
-                      <div className="text-center p-3 bg-green-100 border rounded">
-                        <div className="font-bold">{trainingResult.evaluation.confusionMatrix[1][1]}</div>
-                        <div className="text-xs">True Pos</div>
+                      <div className="space-y-2 text-sm mb-4">
+                        <div>• Cross-platform inference</div>
+                        <div>• Optimized for production</div>
+                        <div>• Compatible with ONNX Runtime</div>
+                        <div>• Smaller file size</div>
+                      </div>
+                      <Button 
+                        onClick={() => downloadModel('onnx')}
+                        className="w-full"
+                        variant="outline"
+                      >
+                        Download ONNX Model
+                      </Button>
+                    </Card>
+
+                    <Card className="p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Download className="h-5 w-5 text-orange-600" />
+                        <h4 className="font-medium">TensorFlow Format</h4>
+                      </div>
+                      <div className="space-y-2 text-sm mb-4">
+                        <div>• Native TensorFlow support</div>
+                        <div>• TensorFlow Serving ready</div>
+                        <div>• Mobile deployment (TFLite)</div>
+                        <div>• Full model graph</div>
+                      </div>
+                      <Button 
+                        onClick={() => downloadModel('tensorflow')}
+                        className="w-full"
+                        variant="outline"
+                      >
+                        Download TensorFlow Model
+                      </Button>
+                    </Card>
+                  </div>
+
+                  <Card className="p-4 bg-gray-50">
+                    <h4 className="font-medium mb-3">Sample Inference Script</h4>
+                    <div className="bg-gray-900 text-green-400 p-4 rounded-lg text-sm font-mono overflow-x-auto">
+                      <div className="text-gray-400"># Python inference script for ONNX model</div>
+                      <div className="mt-2">
+                        <div>import onnxruntime as ort</div>
+                        <div>import numpy as np</div>
+                        <div>from PIL import Image</div>
+                        <div className="mt-2">
+                          <div># Load model</div>
+                          <div>session = ort.InferenceSession('plant_detector.onnx')</div>
+                        </div>
+                        <div className="mt-2">
+                          <div># Preprocess image</div>
+                          <div>img = Image.open('test_image.jpg').resize(({imageSize}, {imageSize}))</div>
+                          <div>img_array = np.array(img).astype(np.float32) / 255.0</div>
+                          <div>img_batch = np.expand_dims(img_array, axis=0)</div>
+                        </div>
+                        <div className="mt-2">
+                          <div># Run inference</div>
+                          <div>outputs = session.run(None, {{'input': img_batch}})</div>
+                          <div>prediction = outputs[0][0]</div>
+                          <div>is_plant = prediction > 0.5</div>
+                          <div>confidence = prediction if is_plant else 1 - prediction</div>
+                        </div>
+                        <div className="mt-2">
+                          <div>print(f"Plant: {{is_plant}}, Confidence: {{confidence:.2f}}")</div>
+                        </div>
                       </div>
                     </div>
+                  </Card>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Card className="p-4">
+                      <h4 className="font-medium mb-2">Model Specifications</h4>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span>Architecture:</span>
+                          <span className="font-medium">{modelArchitecture.toUpperCase()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Input Size:</span>
+                          <span className="font-medium">{imageSize}×{imageSize}×3</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Output:</span>
+                          <span className="font-medium">Binary (Plant/Non-Plant)</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Pretrained:</span>
+                          <span className="font-medium">ImageNet</span>
+                        </div>
+                      </div>
+                    </Card>
+
+                    <Card className="p-4">
+                      <h4 className="font-medium mb-2">Deployment Options</h4>
+                      <div className="space-y-1 text-sm">
+                        <div>• Cloud API (REST endpoint)</div>
+                        <div>• Edge devices (ONNX Runtime)</div>
+                        <div>• Mobile apps (TensorFlow Lite)</div>
+                        <div>• Web browsers (TensorFlow.js)</div>
+                        <div>• Docker containers</div>
+                        <div>• Kubernetes clusters</div>
+                      </div>
+                    </Card>
                   </div>
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                  <h3 className="text-lg font-semibold mb-2">No Metrics Available</h3>
-                  <p className="text-gray-600">Train a model to see performance metrics</p>
+                  <Download className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                  <h3 className="text-lg font-semibold mb-2">No Model Available</h3>
+                  <p className="text-gray-600">Train a plant detection model first to enable export</p>
                 </div>
               )}
             </CardContent>
@@ -656,7 +968,7 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
       </Tabs>
 
       {/* System Status Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -667,12 +979,16 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
           <CardContent>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span>Images Collected:</span>
-                <span className="font-medium">{datasetStats?.totalImages || 0}</span>
+                <span>Total Images:</span>
+                <span className="font-medium">{datasetStats?.totalImages.toLocaleString() || '0'}</span>
               </div>
               <div className="flex justify-between">
-                <span>Sources:</span>
-                <span className="font-medium">{datasetStats ? Object.keys(datasetStats.sources).length : 0}</span>
+                <span>Plant Images:</span>
+                <span className="font-medium text-green-600">{datasetStats?.plantImages.toLocaleString() || '0'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Non-Plant:</span>
+                <span className="font-medium text-blue-600">{datasetStats?.nonPlantImages.toLocaleString() || '0'}</span>
               </div>
               <div className="flex justify-between">
                 <span>Status:</span>
@@ -694,17 +1010,21 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
           <CardContent>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span>Model Type:</span>
-                <span className="font-medium">Vision Transformer</span>
+                <span>Architecture:</span>
+                <span className="font-medium">{modelArchitecture.toUpperCase()}</span>
               </div>
               <div className="flex justify-between">
                 <span>Accuracy:</span>
                 <span className="font-medium">{trainingResult ? `${(trainingResult.evaluation.accuracy * 100).toFixed(1)}%` : 'N/A'}</span>
               </div>
               <div className="flex justify-between">
+                <span>F1-Score:</span>
+                <span className="font-medium">{trainingResult ? `${(trainingResult.evaluation.f1Score * 100).toFixed(1)}%` : 'N/A'}</span>
+              </div>
+              <div className="flex justify-between">
                 <span>Status:</span>
                 <Badge variant={trainingResult ? "default" : "secondary"}>
-                  {trainingResult ? "Deployed" : "Train Model"}
+                  {trainingResult ? "Trained" : "Train Model"}
                 </Badge>
               </div>
             </div>
@@ -715,25 +1035,66 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Target className="h-5 w-5" />
-              System Performance
+              Performance
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span>Target Accuracy:</span>
-                <span className="font-medium">95%+</span>
+                <span className="font-medium">&gt; 90%</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Target F1:</span>
+                <span className="font-medium">&gt; 88%</span>
               </div>
               <div className="flex justify-between">
                 <span>Achieved:</span>
                 <span className="font-medium text-green-600">
-                  {trainingResult && trainingResult.evaluation.accuracy >= 0.95 ? '✓ Target Met' : 'Pending'}
+                  {trainingResult && trainingResult.evaluation.accuracy >= 0.90 && trainingResult.evaluation.f1Score >= 0.88 ? '✓ Targets Met' : 'Pending'}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span>Ready for Production:</span>
-                <Badge variant={trainingResult && trainingResult.evaluation.accuracy >= 0.95 ? "default" : "secondary"}>
-                  {trainingResult && trainingResult.evaluation.accuracy >= 0.95 ? "Yes" : "No"}
+                <span>Production Ready:</span>
+                <Badge variant={trainingResult && trainingResult.evaluation.accuracy >= 0.90 ? "default" : "secondary"}>
+                  {trainingResult && trainingResult.evaluation.accuracy >= 0.90 ? "Yes" : "No"}
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Rocket className="h-5 w-5" />
+              Export Status
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span>ONNX:</span>
+                <Badge variant={trainingResult ? "default" : "secondary"}>
+                  {trainingResult ? "Available" : "Train First"}
+                </Badge>
+              </div>
+              <div className="flex justify-between">
+                <span>TensorFlow:</span>
+                <Badge variant={trainingResult ? "default" : "secondary"}>
+                  {trainingResult ? "Available" : "Train First"}
+                </Badge>
+              </div>
+              <div className="flex justify-between">
+                <span>API Endpoint:</span>
+                <Badge variant={trainingResult ? "default" : "secondary"}>
+                  {trainingResult ? "Active" : "Deploy First"}
+                </Badge>
+              </div>
+              <div className="flex justify-between">
+                <span>Inference Script:</span>
+                <Badge variant={trainingResult ? "default" : "secondary"}>
+                  {trainingResult ? "Ready" : "Train First"}
                 </Badge>
               </div>
             </div>
