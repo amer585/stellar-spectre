@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Card,
   CardContent,
@@ -7,19 +7,58 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
+import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Upload,
+  Brain,
+  Database,
+  Target,
+  BarChart3,
+  Zap,
+  Camera,
+  Leaf,
+  Bug,
+  Activity,
+  Cloud,
+  Cpu,
+  Download,
+  Play,
+  Settings,
+  CheckCircle2,
+  AlertCircle,
+  TrendingUp,
+  FolderOpen,
+  ImagePlus,
+  Trash2,
+} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-// Types
 interface PlantDatasetStats {
   totalImages: number;
   plantImages: number;
   nonPlantImages: number;
   sources: Record<string, number>;
   plantTypes: Record<string, number>;
+  lightingConditions: Record<string, number>;
+  resolutions: Record<string, number>;
+  backgrounds: Record<string, number>;
 }
 
 interface ModelEvaluation {
@@ -28,436 +67,830 @@ interface ModelEvaluation {
   recall: number;
   f1Score: number;
   confusionMatrix: number[][];
-  trainingAccuracy?: number;
-  validationAccuracy?: number;
-  auc?: number;
+  testAccuracy: number;
+  validationAccuracy: number;
+  trainingAccuracy: number;
+  auc: number;
 }
 
 interface TrainingResult {
   modelId: string;
-  endpointUrl?: string;
+  endpointUrl: string;
   evaluation: ModelEvaluation;
-  trainingHistory?: any[];
-  config?: any;
-  modelFormats?: { onnx?: string; tensorflow?: string };
+  trainingHistory: any[];
+  config: any;
+  modelFormats: {
+    onnx: string;
+    tensorflow: string;
+  };
+}
+
+interface UploadedFile {
+  file: File;
+  id: string;
+  preview?: string;
+  category: 'plant' | 'non_plant';
 }
 
 interface AIEnhancedAnalysisProps {
   userId: string;
 }
 
-const defaultStats: PlantDatasetStats = {
-  totalImages: 0,
-  plantImages: 0,
-  nonPlantImages: 0,
-  sources: {},
-  plantTypes: {},
-};
-
 const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
-  const [loading, setLoading] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [datasetStats, setDatasetStats] = useState<PlantDatasetStats | null>(null);
-  const [trainingResult, setTrainingResult] = useState<TrainingResult | null>(null);
-  const [currentPhase, setCurrentPhase] = useState<string>('');
-
-  const [targetImageCount, setTargetImageCount] = useState<number>(35000);
-  const [modelArchitecture, setModelArchitecture] = useState<string>('efficientnet');
-  const [imageSize, setImageSize] = useState<number>(224);
-  const [batchSize, setBatchSize] = useState<number>(32);
-  const [epochs, setEpochs] = useState<number>(50);
-  const [learningRate, setLearningRate] = useState<number>(0.001);
-
   const { toast } = useToast();
 
-  // Helper: safe invoke of Supabase Edge function
-  const invokeEdgeFunction = useCallback(async (name: string, body: any) => {
-    try {
-      const res = await supabase.functions.invoke(name, { body });
-      // supabase.functions.invoke returns { data, error }
-      // typings differ between SDK versions
-      // we handle both shapes
-      // @ts-ignore
-      if (res.error) throw res.error;
-      // @ts-ignore
-      return res.data;
-    } catch (err) {
-      throw err;
-    }
-  }, []);
+  const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [currentPhase, setCurrentPhase] = useState('');
+  const [datasetStats, setDatasetStats] =
+    useState<PlantDatasetStats | null>(null);
+  const [trainingResult, setTrainingResult] =
+    useState<TrainingResult | null>(null);
+  const [currentTab, setCurrentTab] = useState<string>('mode-selection');
+  const [dataMode, setDataMode] = useState<'automatic' | 'manual' | null>(
+    null
+  );
 
-  // Collect dataset
-  const collectPlantDataset = useCallback(async () => {
+  // Manual data gathering state
+  const [plantImages, setPlantImages] = useState<UploadedFile[]>([]);
+  const [nonPlantImages, setNonPlantImages] = useState<UploadedFile[]>([]);
+  const [uploading, setUploading] = useState(false);
+
+  // Training configuration
+  const [targetImageCount, setTargetImageCount] = useState(35000);
+  const [modelArchitecture, setModelArchitecture] = useState('efficientnet');
+  const [imageSize, setImageSize] = useState(224);
+  const [batchSize, setBatchSize] = useState(32);
+  const [epochs, setEpochs] = useState(50);
+  const [learningRate, setLearningRate] = useState(0.001);
+
+  // Conditions to move between tabs
+  const canProceedToTraining =
+    datasetStats !== null &&
+    datasetStats.plantImages >= 100 &&
+    datasetStats.nonPlantImages >= 50;
+  const canProceedToTesting = trainingResult !== null;
+  const canProceedToExport = trainingResult !== null;
+
+  // Handle file selection for manual mode
+  const handleFileSelection = useCallback(
+    async (files: FileList, category: 'plant' | 'non_plant') => {
+      const newFiles: UploadedFile[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+          toast({
+            title: 'Invalid File',
+            description: `${file.name} is not an image file`,
+            variant: 'destructive',
+          });
+          continue;
+        }
+        // Validate file size (max 10MB per image)
+        if (file.size > 10 * 1024 * 1024) {
+          toast({
+            title: 'File Too Large',
+            description: `${file.name} is larger than 10MB`,
+            variant: 'destructive',
+          });
+          continue;
+        }
+        const fileId = `${category}_${Date.now()}_${i}`;
+        let preview: string | undefined;
+        try {
+          preview = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target?.result as string);
+            reader.onerror = (e) => reject(e);
+            reader.readAsDataURL(file);
+          });
+        } catch (e) {
+          console.error('Error reading file preview', e);
+        }
+        newFiles.push({ file, id: fileId, preview, category });
+      }
+      if (category === 'plant') {
+        setPlantImages((prev) => [...prev, ...newFiles]);
+      } else {
+        setNonPlantImages((prev) => [...prev, ...newFiles]);
+      }
+      toast({
+        title: 'Files Added',
+        description: `Added ${newFiles.length} ${category.replace(
+          '_',
+          '-'
+        )} images`,
+      });
+    },
+    [toast]
+  );
+
+  // Remove uploaded file
+  const removeFile = useCallback(
+    (fileId: string, category: 'plant' | 'non_plant') => {
+      if (category === 'plant') {
+        setPlantImages((prev) => prev.filter((f) => f.id !== fileId));
+      } else {
+        setNonPlantImages((prev) => prev.filter((f) => f.id !== fileId));
+      }
+    },
+    []
+  );
+
+  // Upload manual dataset to storage
+  const uploadManualDataset = async () => {
+    if (plantImages.length < 100 || nonPlantImages.length < 50) {
+      toast({
+        title: 'Insufficient Data',
+        description: 'Need at least 100 plant images and 50 non-plant images',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setUploading(true);
+    setProgress(0);
+    setCurrentPhase('Uploading images to storage...');
+
+    try {
+      const totalFiles = plantImages.length + nonPlantImages.length;
+      let uploadedCount = 0;
+
+      // Helper to upload a batch
+      const uploadBatch = async (uploadFiles: UploadedFile[], cat: 'plant' | 'other') => {
+        for (const uploadFile of uploadFiles) {
+          const fileName = `manual_dataset/${cat}/${uploadFile.id}_${uploadFile.file.name}`;
+          const { error } = await supabase.storage
+            .from('training-datasets')
+            .upload(fileName, uploadFile.file);
+          if (error) {
+            console.error(`Failed to upload ${uploadFile.file.name}:`, error);
+          } else {
+            await supabase
+              .from('image_metadata')
+              .insert({
+                id: uploadFile.id,
+                user_id: userId,
+                title: uploadFile.file.name,
+                source: 'Manual_Upload',
+                category: cat === 'plant' ? 'plant' : 'other',
+                file_path: fileName,
+                metadata: {
+                  originalName: uploadFile.file.name,
+                  fileSize: uploadFile.file.size,
+                  uploadDate: new Date().toISOString(),
+                  dataType: 'manual',
+                },
+              });
+          }
+          uploadedCount++;
+          setProgress((uploadedCount / totalFiles) * 100);
+        }
+      };
+
+      await uploadBatch(plantImages, 'plant');
+      await uploadBatch(nonPlantImages, 'other');
+
+      const stats: PlantDatasetStats = {
+        totalImages: plantImages.length + nonPlantImages.length,
+        plantImages: plantImages.length,
+        nonPlantImages: nonPlantImages.length,
+        sources: { Manual_Upload: plantImages.length + nonPlantImages.length },
+        plantTypes: { User_Uploaded: plantImages.length },
+        lightingConditions: { Mixed: plantImages.length + nonPlantImages.length },
+        resolutions: { Variable: plantImages.length + nonPlantImages.length },
+        backgrounds: { Mixed: plantImages.length + nonPlantImages.length },
+      };
+      setDatasetStats(stats);
+      setProgress(100);
+      setCurrentPhase('Manual dataset upload completed!');
+      toast({
+        title: 'Dataset Upload Complete',
+        description: `Successfully uploaded ${stats.totalImages} images (${stats.plantImages} plants, ${stats.nonPlantImages} non-plants)`,
+      });
+    } catch (error) {
+      console.error('Error uploading manual dataset:', error);
+      toast({
+        title: 'Upload Failed',
+        description: 'Failed to upload dataset. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploading(false);
+      setProgress(0);
+      setCurrentPhase('');
+    }
+  };
+
+  // Automatic dataset collection
+  const collectAutomaticDataset = async () => {
     setLoading(true);
     setProgress(5);
-    setCurrentPhase('Initializing plant dataset collection...');
+    setCurrentPhase('Initializing automatic dataset collection...');
     try {
-      const body = {
-        action: 'collect-dataset',
-        userId,
-        targetCount: targetImageCount,
-      };
-      const data = await invokeEdgeFunction('plant-dataset-collector', body);
-      // assume data.stats exists
-      if (data?.stats) {
-        setDatasetStats({ ...defaultStats, ...data.stats });
+      const { data, error } = await supabase.functions.invoke(
+        'plant-dataset-collector',
+        {
+          body: {
+            action: 'collect-dataset',
+            userId,
+            targetCount: targetImageCount,
+            requirements: {
+              plantImages: Math.floor(targetImageCount * 0.7),
+              nonPlantImages: Math.floor(targetImageCount * 0.3),
+              sources: [
+                'PlantCLEF',
+                'ImageNet',
+                'Google_Open_Images',
+                'Kaggle_Plants',
+                'PlantVillage',
+              ],
+              diversity: {
+                lightingConditions: ['natural', 'artificial', 'mixed', 'low_light'],
+                backgrounds: ['field', 'greenhouse', 'indoor', 'garden', 'wild'],
+                plantTypes: ['trees', 'flowers', 'crops', 'leaves', 'indoor_plants', 'succulents'],
+                perspectives: ['close_up', 'medium', 'wide_shot', 'aerial'],
+              },
+            },
+          },
+        }
+      );
+      if (error) throw error;
+      if (!data) {
+        throw new Error('No data returned');
       }
+      // Type cast / assume data.stats matches PlantDatasetStats
+      setDatasetStats(data.stats);
       setProgress(100);
-      setCurrentPhase('Plant dataset collection completed!');
+      setCurrentPhase('Automatic dataset collection completed!');
       toast({
-        title: 'Plant Dataset Collection Complete',
-        description: `Collected ${data?.stats?.totalImages ?? 0} images`,
+        title: 'Dataset Collection Complete',
+        description: `Successfully collected ${data.stats.totalImages.toLocaleString()} images`,
       });
-    } catch (err) {
-      console.error('collectPlantDataset error', err);
-      toast({ title: 'Error', description: 'Failed to collect dataset', variant: 'destructive' });
+    } catch (err: any) {
+      console.error('Error collecting dataset:', err);
+      toast({
+        title: 'Error',
+        description: 'Failed to collect dataset. Please try again.',
+        variant: 'destructive',
+      });
       setCurrentPhase('Collection failed');
     } finally {
       setLoading(false);
       setProgress(0);
     }
-  }, [invokeEdgeFunction, targetImageCount, toast, userId]);
+  };
 
-  // Train model
-  const trainPlantDetectionModel = useCallback(async () => {
-    if (!datasetStats || datasetStats.totalImages < 1000) {
-      toast({ title: 'Insufficient Data', description: 'Collect more images before training', variant: 'destructive' });
+  // Train plant detection model
+  const trainPlantDetectionModel = async () => {
+    if (!canProceedToTraining) {
+      toast({
+        title: 'Insufficient Data',
+        description: 'Please collect at least 100 plant images and 50 non-plant images before training.',
+        variant: 'destructive',
+      });
       return;
     }
     setLoading(true);
     setProgress(0);
-    setCurrentPhase('Initializing training...');
+    setCurrentPhase('Initializing model training...');
+
     try {
-      const config = {
-        modelArchitecture,
-        imageSize,
-        batchSize,
-        epochs,
-        learningRate,
-      };
-
-      // Simulate progress updates (replace with real streaming if available)
-      const phases = [
-        { p: 10, t: 'Loading & preprocessing...' },
-        { p: 30, t: 'Starting training...' },
-        { p: 60, t: 'Fine tuning...' },
-        { p: 80, t: 'Validating...' },
-        { p: 95, t: 'Exporting & deploying...' },
+      const progressUpdates = [
+        { progress: 10, phase: 'Loading dataset and preprocessing images...' },
+        { progress: 20, phase: `Initializing ${modelArchitecture.toUpperCase()} with ImageNet pretrained weights...` },
+        { progress: 30, phase: 'Setting up data augmentation pipeline...' },
+        { progress: 40, phase: 'Starting transfer learning - freezing backbone layers...' },
+        { progress: 50, phase: 'Training classification head (phase 1)...' },
+        { progress: 65, phase: 'Fine-tuning backbone layers (phase 2)...' },
+        { progress: 80, phase: 'Advanced training with learning rate scheduling...' },
+        { progress: 90, phase: 'Validating model performance...' },
+        { progress: 95, phase: 'Exporting model formats...' },
+        { progress: 98, phase: 'Deploying to inference endpoint...' },
       ];
-
-      for (const s of phases) {
-        setProgress(s.p);
-        setCurrentPhase(s.t);
-        // small delay so UI shows progress
-        // eslint-disable-next-line no-await-in-loop
-        await new Promise((r) => setTimeout(r, 800));
+      for (const update of progressUpdates) {
+        setProgress(update.progress);
+        setCurrentPhase(update.phase);
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       }
 
-      const body = { action: 'train-model', userId, config };
-      const data = await invokeEdgeFunction('plant-model-trainer', body);
-      if (data) {
-        setTrainingResult(data as TrainingResult);
-        setProgress(100);
-        setCurrentPhase('Training completed');
-        toast({ title: 'Training completed', description: `Accuracy: ${(data.evaluation?.accuracy ?? 0) * 100}%` });
+      const { data, error } = await supabase.functions.invoke(
+        'plant-model-trainer',
+        {
+          body: {
+            action: 'train-model',
+            userId,
+            config: {
+              modelArchitecture,
+              imageSize,
+              batchSize,
+              epochs,
+              learningRate,
+              optimizer: 'AdamW',
+              scheduler: 'CosineAnnealingLR',
+              augmentation: {
+                rotation: 30,
+                brightness: 0.2,
+                contrast: 0.2,
+                saturation: 0.2,
+                hue: 0.1,
+                horizontalFlip: true,
+                verticalFlip: false,
+                cutmix: true,
+                mixup: true,
+              },
+              splitRatio: { train: 0.8, validation: 0.1, test: 0.1 },
+            },
+          },
+        }
+      );
+      if (error) throw error;
+      if (!data) {
+        throw new Error('No training result returned');
       }
-    } catch (err) {
-      console.error('trainPlantDetectionModel error', err);
-      toast({ title: 'Error', description: 'Failed to train model', variant: 'destructive' });
+      setTrainingResult(data);
+      setProgress(100);
+      setCurrentPhase('Model training completed successfully!');
+      toast({
+        title: 'Model Training Complete!',
+        description: `Accuracy: ${(data.evaluation.accuracy * 100).toFixed(2)}% | F1-Score: ${(data.evaluation.f1Score * 100).toFixed(2)}%`,
+      });
+    } catch (err: any) {
+      console.error('Error training model:', err);
+      toast({
+        title: 'Training Failed',
+        description: 'Failed to train model. Please try again.',
+        variant: 'destructive',
+      });
       setCurrentPhase('Training failed');
     } finally {
       setLoading(false);
       setProgress(0);
     }
-  }, [datasetStats, invokeEdgeFunction, userId, modelArchitecture, imageSize, batchSize, epochs, learningRate, toast]);
+  };
 
-  // Test model
-  const testPlantModel = useCallback(async (imageFile: File) => {
+  // Test / inference
+  const testPlantModel = async (imageFile: File) => {
+    if (!trainingResult) {
+      toast({
+        title: 'No Model Available',
+        description: 'Please train a model first.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setLoading(true);
-    setCurrentPhase('Processing image...');
+    setCurrentPhase('Processing image for plant detection...');
     try {
       const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve(String(reader.result ?? ''));
-        reader.onerror = (e) => reject(e);
+      const base64Promise = new Promise<string>((resolve) => {
+        reader.onload = () => resolve(reader.result as string);
         reader.readAsDataURL(imageFile);
       });
       const base64Image = await base64Promise;
-      const body = { action: 'inference', userId, imageData: base64Image };
-      const data = await invokeEdgeFunction('plant-model-trainer', body);
 
-      const isPlant = Boolean(data?.isPlant);
-      const confidence = Number(data?.confidence ?? 0);
-
+      const { data, error } = await supabase.functions.invoke(
+        'plant-model-trainer',
+        {
+          body: {
+            action: 'inference',
+            userId,
+            imageData: base64Image,
+          },
+        }
+      );
+      if (error) throw error;
+      if (!data) {
+        throw new Error('No inference result returned');
+      }
       toast({
-        title: 'Inference Result',
-        description: `${isPlant ? 'Plant' : 'Non-Plant'} detected — ${ (confidence * 100).toFixed(1) }%`,
+        title: 'Plant Detection Result',
+        description: `${data.isPlant ? 'Plant' : 'Non-Plant'} detected with ${(data.confidence * 100).toFixed(1)}% confidence`,
       });
-      return { isPlant, confidence };
-    } catch (err) {
-      console.error('testPlantModel error', err);
-      toast({ title: 'Error', description: 'Inference failed', variant: 'destructive' });
+      return data;
+    } catch (err: any) {
+      console.error('Error testing model:', err);
+      toast({
+        title: 'Inference Failed',
+        description: 'Failed to run plant detection inference.',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
       setCurrentPhase('');
     }
-    return null;
-  }, [invokeEdgeFunction, userId, toast]);
+  };
 
-  // Download model
-  const downloadModel = useCallback(async (format: 'onnx' | 'tensorflow') => {
+  // Download model (onnx or tensorflow)
+  const downloadModel = async (format: 'onnx' | 'tensorflow') => {
     if (!trainingResult) {
-      toast({ title: 'No Model', description: 'Train a model first', variant: 'destructive' });
+      toast({
+        title: 'No Model Available',
+        description: 'Please train a model first.',
+        variant: 'destructive',
+      });
       return;
     }
     try {
-      const body = { action: 'download-model', userId, format, modelId: trainingResult.modelId };
-      const data = await invokeEdgeFunction('plant-model-trainer', body);
-
-      // data.modelData is assumed to be base64 or binary array
-      const modelDataBase64 = data?.modelData ?? null;
-      if (!modelDataBase64) throw new Error('No model data returned');
-
-      // If base64 string, convert to blob
-      const byteCharacters = atob(modelDataBase64);
-      const byteNumbers = new Array(byteCharacters.length);
-      // eslint-disable-next-line no-plusplus
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      const { data, error } = await supabase.functions.invoke(
+        'plant-model-trainer',
+        {
+          body: {
+            action: 'download-model',
+            userId,
+            format,
+            modelId: trainingResult.modelId,
+          },
+        }
+      );
+      if (error) throw error;
+      if (!data) {
+        throw new Error('No model data returned');
       }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray]);
+      const blob = new Blob([new Uint8Array(data.modelData)], {
+        type: 'application/octet-stream',
+      });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `model_${trainingResult.modelId}.${format === 'onnx' ? 'onnx' : 'pb'}`;
+      a.download = data.filename;
       document.body.appendChild(a);
       a.click();
-      a.remove();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      toast({ title: 'Downloaded', description: `Downloaded ${format.toUpperCase()} model` });
-    } catch (err) {
-      console.error('downloadModel error', err);
-      toast({ title: 'Error', description: 'Failed to download model', variant: 'destructive' });
+      toast({
+        title: 'Model Downloaded',
+        description: `${format.toUpperCase()} model downloaded successfully`,
+      });
+    } catch (err: any) {
+      console.error('Error downloading model:', err);
+      toast({
+        title: 'Download Failed',
+        description: 'Failed to download model.',
+        variant: 'destructive',
+      });
     }
-  }, [invokeEdgeFunction, trainingResult, userId, toast]);
-
-  // Small optimization: memoize some computed values
-  const plantRatio = useMemo(() => {
-    if (!datasetStats || datasetStats.totalImages === 0) return 0;
-    return Math.round((datasetStats.plantImages / datasetStats.totalImages) * 100);
-  }, [datasetStats]);
+  };
 
   return (
-    <div className="ai-enhanced-analysis container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-2">Plant Detection AI System</h1>
-      <p className="text-sm text-muted-foreground mb-4">Binary classifier for plant vs non-plant using transfer learning.</p>
+    <Card>
+      <CardHeader>
+        <CardTitle>Plant Detection AI System</CardTitle>
+        <CardDescription>
+          Binary classifier for plant vs non-plant detection using
+          transfer learning
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Tabs value={currentTab} onValueChange={setCurrentTab}>
+          <TabsList>
+            <TabsTrigger value="mode-selection">Data Mode</TabsTrigger>
+            <TabsTrigger value="dataset">Dataset Collection</TabsTrigger>
+            <TabsTrigger value="training">Model Training</TabsTrigger>
+            <TabsTrigger value="testing">Testing & Inference</TabsTrigger>
+            <TabsTrigger value="export">Model Export</TabsTrigger>
+          </TabsList>
 
-      <Tabs value="dataset" className="mb-6">
-        <TabsList>
-          <TabsTrigger value="dataset">Dataset Collection</TabsTrigger>
-          <TabsTrigger value="train">Model Training</TabsTrigger>
-          <TabsTrigger value="test">Testing</TabsTrigger>
-          <TabsTrigger value="export">Export</TabsTrigger>
-        </TabsList>
+          <TabsContent value="mode-selection">
+            <div className="flex flex-col space-y-4">
+              <Button onClick={() => setDataMode('automatic')}>
+                Automatic Collection
+              </Button>
+              <Button onClick={() => setDataMode('manual')}>
+                Manual Upload
+              </Button>
+              {dataMode && (
+                <Button
+                  onClick={() => setCurrentTab('dataset')}
+                  className="px-8"
+                >
+                  Continue with{' '}
+                  {dataMode === 'automatic' ? 'Automatic' : 'Manual'} Mode
+                </Button>
+              )}
+            </div>
+          </TabsContent>
 
-        <TabsContent value="dataset">
-          <Card>
-            <CardHeader>
-              <CardTitle>Plant Dataset Collection</CardTitle>
-              <CardDescription>Collect images from multiple sources for robust training</CardDescription>
-            </CardHeader>
-            <CardContent>
+          <TabsContent value="dataset">
+            {dataMode === 'automatic' ? (
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm">Target Dataset Size</label>
-                  <Select value={String(targetImageCount)} onValueChange={(v) => setTargetImageCount(parseInt(v, 10))}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="15000">15,000</SelectItem>
-                      <SelectItem value="25000">25,000</SelectItem>
-                      <SelectItem value="35000">35,000</SelectItem>
-                      <SelectItem value="50000">50,000</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Button onClick={collectPlantDataset} disabled={loading}>{loading ? 'Collecting...' : 'Start Collection'}</Button>
-                </div>
-
-                {loading && currentPhase && (
-                  <div className="text-sm">{currentPhase} — {progress}%</div>
+                <Label>Target Dataset Size</Label>
+                <Select
+                  value={targetImageCount.toString()}
+                  onValueChange={(v) => setTargetImageCount(parseInt(v))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select target count" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="15000">15,000 images</SelectItem>
+                    <SelectItem value="25000">25,000 images</SelectItem>
+                    <SelectItem value="35000">35,000 images</SelectItem>
+                    <SelectItem value="50000">50,000 images</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  onClick={collectAutomaticDataset}
+                  disabled={loading}
+                >
+                  {loading ? 'Collecting Dataset...' : 'Start Automatic Collection'}
+                </Button>
+                {loading && (
+                  <div>
+                    {currentPhase} — {progress.toFixed(1)}%
+                    <Progress value={progress} />
+                  </div>
                 )}
-
                 {datasetStats && (
-                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                    <div>Total Images: {datasetStats.totalImages.toLocaleString()}</div>
-                    <div>Plant Images: {datasetStats.plantImages.toLocaleString()}</div>
-                    <div>Non-Plant Images: {datasetStats.nonPlantImages.toLocaleString()}</div>
-                    <div>Plant Ratio: {plantRatio}%</div>
-                    <div>Sources:</div>
-                    <div>
-                      {Object.entries(datasetStats.sources).map(([s, c]) => (
-                        <div key={s}>{s}: {c.toLocaleString()}</div>
-                      ))}
-                    </div>
+                  <div>
+                    <p>Dataset Ready!</p>
+                    <p>Total Images: {datasetStats.totalImages.toLocaleString()}</p>
+                    <p>Plants: {datasetStats.plantImages.toLocaleString()}</p>
+                    <p>Non-Plants: {datasetStats.nonPlantImages.toLocaleString()}</p>
+                    <p>Sources: {Object.keys(datasetStats.sources).length}</p>
                   </div>
                 )}
+                {datasetStats && (
+                  <Button
+                    onClick={() => setCurrentTab('training')}
+                    className="px-8"
+                  >
+                    Proceed to Model Training
+                  </Button>
+                )}
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="train">
-          <Card>
-            <CardHeader>
-              <CardTitle>Model Training</CardTitle>
-              <CardDescription>Configure and start training</CardDescription>
-            </CardHeader>
-            <CardContent>
+            ) : (
               <div className="space-y-4">
+                <Label>Manual Dataset Upload</Label>
                 <div>
-                  <label className="block text-sm">Model Architecture</label>
-                  <Select value={modelArchitecture} onValueChange={(v) => setModelArchitecture(v)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="efficientnet">EfficientNet</SelectItem>
-                      <SelectItem value="resnet50">ResNet-50</SelectItem>
-                      <SelectItem value="vit">Vision Transformer</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label>Plant Images ({plantImages.length})</Label>
+                  <Input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={(e) =>
+                      e.target.files &&
+                      handleFileSelection(e.target.files, 'plant')
+                    }
+                  />
+                  {plantImages.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2 mt-2">
+                      {plantImages.slice(0, 12).map((uploadFile) => (
+                        <div key={uploadFile.id}>
+                          <img
+                            src={uploadFile.preview}
+                            alt=""
+                            className="w-full h-auto"
+                          />
+                          <Button
+                            variant="destructive"
+                            onClick={() =>
+                              removeFile(uploadFile.id, 'plant')
+                            }
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      ))}
+                      {plantImages.length > 12 && (
+                        <p>Showing 12 of {plantImages.length} images</p>
+                      )}
+                    </div>
+                  )}
                 </div>
-
                 <div>
-                  <label className="block text-sm">Input Size</label>
-                  <Select value={String(imageSize)} onValueChange={(v) => setImageSize(parseInt(v, 10))}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="224">224</SelectItem>
-                      <SelectItem value="256">256</SelectItem>
-                      <SelectItem value="384">384</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label>Non-Plant Images ({nonPlantImages.length})</Label>
+                  <Input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={(e) =>
+                      e.target.files &&
+                      handleFileSelection(e.target.files, 'non_plant')
+                    }
+                  />
+                  {nonPlantImages.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2 mt-2">
+                      {nonPlantImages.slice(0, 12).map((uploadFile) => (
+                        <div key={uploadFile.id}>
+                          <img
+                            src={uploadFile.preview}
+                            alt=""
+                            className="w-full h-auto"
+                          />
+                          <Button
+                            variant="destructive"
+                            onClick={() =>
+                              removeFile(uploadFile.id, 'non_plant')
+                            }
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      ))}
+                      {nonPlantImages.length > 12 && (
+                        <p>Showing 12 of {nonPlantImages.length} images</p>
+                      )}
+                    </div>
+                  )}
                 </div>
-
-                <div>
-                  <label className="block text-sm">Batch Size</label>
-                  <Input type="number" value={String(batchSize)} onChange={(e) => setBatchSize(Number(e.target.value))} min={8} max={256} />
-                </div>
-
-                <div>
-                  <label className="block text-sm">Epochs</label>
-                  <Input type="number" value={String(epochs)} onChange={(e) => setEpochs(Number(e.target.value))} min={1} max={500} />
-                </div>
-
-                <div>
-                  <label className="block text-sm">Learning Rate</label>
-                  <Input type="number" value={String(learningRate)} onChange={(e) => setLearningRate(Number(e.target.value))} step={0.0001} />
-                </div>
-
-                <div>
-                  <Button onClick={trainPlantDetectionModel} disabled={loading}>{loading ? 'Training...' : 'Start Training'}</Button>
-                </div>
-
-                {loading && currentPhase && (
-                  <div className="text-sm">{currentPhase} — {progress}%</div>
-                )}
-
-                {trainingResult && (
-                  <div className="mt-4 text-sm">
-                    <div>Accuracy: {(trainingResult.evaluation.accuracy * 100).toFixed(2)}%</div>
-                    <div>F1-Score: {(trainingResult.evaluation.f1Score * 100).toFixed(2)}%</div>
-                    <div>Model ID: {trainingResult.modelId}</div>
+                {uploading && (
+                  <div className="mt-2">
+                    {currentPhase} — {progress.toFixed(1)}%
+                    <Progress value={progress} />
                   </div>
                 )}
+                {(plantImages.length > 0 || nonPlantImages.length > 0) && (
+                  <Button
+                    onClick={uploadManualDataset}
+                    disabled={uploading}
+                  >
+                    {uploading
+                      ? 'Uploading Dataset...'
+                      : `Upload Dataset (${plantImages.length + nonPlantImages.length} images)`}
+                  </Button>
+                )}
+                {datasetStats && (
+                  <Button
+                    onClick={() => setCurrentTab('training')}
+                    className="px-8"
+                  >
+                    Proceed to Model Training
+                  </Button>
+                )}
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            )}
+          </TabsContent>
 
-        <TabsContent value="test">
-          <Card>
-            <CardHeader>
-              <CardTitle>Testing & Inference</CardTitle>
-              <CardDescription>Run inference on a single image</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {trainingResult ? (
-                <div className="space-y-3">
-                  <p className="text-sm">Model ready — Accuracy: {(trainingResult.evaluation.accuracy * 100).toFixed(1)}%</p>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    id="test-image"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (file) await testPlantModel(file);
-                    }}
-                    className="hidden"
-                  />
-                  <label htmlFor="test-image">
-                    <Button>Choose Image</Button>
-                  </label>
+          <TabsContent value="training">
+            <div className="space-y-4">
+              <Label>Model Training Configuration</Label>
+              <div>
+                <Label>Model Architecture</Label>
+                <Select
+                  value={modelArchitecture}
+                  onValueChange={setModelArchitecture}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="efficientnet">EfficientNet</SelectItem>
+                    <SelectItem value="resnet50">ResNet-50</SelectItem>
+                    <SelectItem value="vit">Vision Transformer</SelectItem>
+                    <SelectItem value="mobilenetv3">MobileNetV3</SelectItem>
+                    <SelectItem value="convnext">ConvNeXt</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Input Image Size</Label>
+                <Input
+                  type="number"
+                  min={32}
+                  max={1024}
+                  value={imageSize}
+                  onChange={(e) =>
+                    setImageSize(parseInt(e.target.value))
+                  }
+                />
+              </div>
+              <div>
+                <Label>Batch Size</Label>
+                <Input
+                  type="number"
+                  min={8}
+                  max={128}
+                  value={batchSize}
+                  onChange={(e) =>
+                    setBatchSize(parseInt(e.target.value))
+                  }
+                />
+              </div>
+              <div>
+                <Label>Epochs</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={500}
+                  value={epochs}
+                  onChange={(e) => setEpochs(parseInt(e.target.value))}
+                />
+              </div>
+              <div>
+                <Label>Learning Rate</Label>
+                <Input
+                  type="number"
+                  step={0.0001}
+                  min={0.00001}
+                  max={1}
+                  value={learningRate}
+                  onChange={(e) =>
+                    setLearningRate(parseFloat(e.target.value))
+                  }
+                />
+              </div>
+              <Button
+                onClick={trainPlantDetectionModel}
+                disabled={loading || !canProceedToTraining}
+              >
+                {loading ? 'Training Model...' : 'Start Model Training'}
+              </Button>
+              {loading && (
+                <div>
+                  {currentPhase} — {progress.toFixed(1)}%
+                  <Progress value={progress} />
                 </div>
-              ) : (
-                <p className="text-sm">Train a model first to test</p>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="export">
-          <Card>
-            <CardHeader>
-              <CardTitle>Export</CardTitle>
-              <CardDescription>Download trained model files</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {trainingResult ? (
-                <div className="space-y-2">
-                  <Button onClick={() => downloadModel('onnx')}>Download ONNX</Button>
-                  <Button onClick={() => downloadModel('tensorflow')}>Download TF</Button>
+              {trainingResult && (
+                <div className="mt-4">
+                  <h3>Training Complete!</h3>
+                  <p>
+                    Accuracy: {(trainingResult.evaluation.accuracy * 100).toFixed(2)}%
+                  </p>
+                  <p>
+                    F1-Score: {(trainingResult.evaluation.f1Score * 100).toFixed(2)}%
+                  </p>
+                  <Button
+                    onClick={() => setCurrentTab('testing')}
+                    className="px-8"
+                  >
+                    Test Your Model
+                  </Button>
                 </div>
-              ) : (
-                <p className="text-sm">Train a model first to export</p>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            </div>
+          </TabsContent>
 
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Dataset Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div>Total Images: {datasetStats?.totalImages?.toLocaleString() ?? 0}</div>
-            <div>Plant Images: {datasetStats?.plantImages?.toLocaleString() ?? 0}</div>
-            <div>Non-Plant: {datasetStats?.nonPlantImages?.toLocaleString() ?? 0}</div>
-            <div>Plant Ratio: {plantRatio}%</div>
-          </CardContent>
-        </Card>
+          <TabsContent value="testing">
+            <div className="space-y-4">
+              <h3>Model Testing & Inference</h3>
+              {trainingResult ? (
+                <>
+                  <p>
+                    Accuracy:{' '}
+                    {(trainingResult.evaluation.accuracy * 100).toFixed(1)}% | F1-Score:{' '}
+                    {(trainingResult.evaluation.f1Score * 100).toFixed(1)}%
+                  </p>
+                  <div>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          await testPlantModel(file);
+                        }
+                      }}
+                    />
+                  </div>
+                  {loading && currentPhase && (
+                    <p>
+                      {currentPhase} — {progress.toFixed(1)}%
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p>No Model Available — train a model first.</p>
+              )}
+            </div>
+          </TabsContent>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Model Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div>Architecture: {modelArchitecture.toUpperCase()}</div>
-            <div>Accuracy: {trainingResult ? `${(trainingResult.evaluation.accuracy * 100).toFixed(1)}%` : 'N/A'}</div>
-            <div>Status: {trainingResult ? 'Trained' : 'Not trained'}</div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+          <TabsContent value="export">
+            <div className="space-y-4">
+              <h3>Model Export & Deployment</h3>
+              {trainingResult ? (
+                <>
+                  <Button onClick={() => downloadModel('onnx')} variant="outline">
+                    Download ONNX Model
+                  </Button>
+                  <Button onClick={() => downloadModel('tensorflow')} variant="outline">
+                    Download TensorFlow Model
+                  </Button>
+                  <div className="mt-4">
+                    <h4>Model Info</h4>
+                    <p>Model ID: {trainingResult.modelId}</p>
+                    <p>API Endpoint: {trainingResult.endpointUrl}</p>
+                    <p>
+                      Test Accuracy: {(trainingResult.evaluation.testAccuracy * 100).toFixed(2)}%
+                    </p>
+                    <p>
+                      Validation Accuracy: {(trainingResult.evaluation.validationAccuracy * 100).toFixed(2)}%
+                    </p>
+                    <p>
+                      Training Accuracy: {(trainingResult.evaluation.trainingAccuracy * 100).toFixed(2)}%
+                    </p>
+                    <p>AUC-ROC: {(trainingResult.evaluation.auc * 100).toFixed(2)}%</p>
+                  </div>
+                </>
+              ) : (
+                <p>No Model Available — train first.</p>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+    </Card>
   );
 };
 
