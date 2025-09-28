@@ -3,7 +3,9 @@ import { createClient } from "@supabase/supabase-js";
 
 // --- Setup Supabase client ---
 const supabaseUrl = "https://yjpuugbijzkrzahfamqn.supabase.co";
-const supabaseAnonKey = "<YOUR-ANON-PUBLIC-KEY>"; // replace with your anon key
+const supabaseAnonKey =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlqcHV1Z2JpanprcnphaGZhbXFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2NTE1NDcsImV4cCI6MjA3NDIyNzU0N30.fJk8XEE35KCKkkPbuoYBzMegcluXYC2FjeCHUiKYzt4";
+
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const PlantDetectionSystem: React.FC = () => {
@@ -79,10 +81,18 @@ const PlantDetectionSystem: React.FC = () => {
 
       {result && (
         <div style={{ marginTop: "20px" }}>
-          <p><strong>Species:</strong> {result.species}</p>
-          <p><strong>Health:</strong> {result.health}</p>
-          <p><strong>Confidence:</strong> {result.confidence.toFixed(2)}%</p>
-          <p><strong>Analyzed URL:</strong> {result.analyzedUrl}</p>
+          <p>
+            <strong>Species:</strong> {result.species}
+          </p>
+          <p>
+            <strong>Health:</strong> {result.health}
+          </p>
+          <p>
+            <strong>Confidence:</strong> {result.confidence.toFixed(2)}%
+          </p>
+          <p>
+            <strong>Analyzed URL:</strong> {result.analyzedUrl}
+          </p>
         </div>
       )}
     </div>
