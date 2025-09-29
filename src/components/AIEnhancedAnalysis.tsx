@@ -25,32 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Upload,
-  Brain,
-  Database,
-  Target,
-  BarChart3,
-  Zap,
-  Camera,
-  Leaf,
-  Bug,
-  Activity,
-  Cloud,
-  Cpu,
-  Download,
-  Play,
-  Settings,
-  CheckCircle2,
-  AlertCircle,
-  TrendingUp,
-  FolderOpen,
-  ImagePlus,
-  Trash2,
-  Wand2,
-  Sparkles,
-  Image,
-} from 'lucide-react';
+import { Upload, Brain, Database, Target, ChartBar as BarChart3, Zap, Camera, Leaf, Bug, Activity, Cloud, Cpu, Download, Play, Settings, CircleCheck as CheckCircle2, CircleAlert as AlertCircle, TrendingUp, FolderOpen, ImagePlus, Trash2, Wand as Wand2, Sparkles, Image } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
