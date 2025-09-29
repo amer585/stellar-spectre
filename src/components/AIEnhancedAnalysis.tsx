@@ -126,8 +126,8 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
   const [learningRate, setLearningRate] = useState(0.001);
 
   // Plant generator templates and styles
+  // FIX: Removed the empty key ('') which was causing the error.
   const PLANT_TEMPLATES = {
-    '': '-- Choose Preset --',
     'Random': 'Random',
     'exoplanet': 'Terrestrial Exoplanet',
     'gasgiant': 'Massive Gas Giant',
@@ -144,8 +144,8 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
   };
 
   // Non-plant generator templates and styles
+  // FIX: Removed the empty key ('') which was causing the error.
   const NON_PLANT_TEMPLATES = {
-    '': '-- Choose Preset --',
     'Random': 'Random',
     'abstract_data_texture': 'Synthetic Abstract Data',
     'fantasy_forest': 'Ancient Fantasy Forest',
@@ -425,7 +425,6 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
             user_id: userId,
             title: uploadFile.file.name,
             source: 'Manual_Upload',
-            // FIX #2: Changed 'other' to 'non_plant' for consistency
             category: 'non_plant',
             file_path: fileName,
             metadata: {
@@ -484,7 +483,6 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
             user_id: userId,
             title: `Generated Non-Plant: ${genImage.prompt.substring(0, 50)}`,
             source: 'Dream_Weaver_AI',
-            // FIX #2: Changed 'other' to 'non_plant' for consistency
             category: 'non_plant',
             file_path: fileName,
             metadata: {
@@ -529,10 +527,7 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
     }
   };
 
-  // Convert base64 to blob
-  // FIX #1: Made this function more robust by handling optional data URL prefixes.
   const base64ToBlob = (base64Data: string): Blob => {
-    // Strip the data URL prefix if it exists, e.g., "data:image/png;base64,"
     const base64 = base64Data.startsWith('data:image')
       ? base64Data.split(',')[1]
       : base64Data;
@@ -547,7 +542,6 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
       return new Blob([byteArray], { type: 'image/png' });
     } catch (error) {
       console.error("Failed to decode base64 string:", error);
-      // Return an empty blob or handle the error as appropriate
       return new Blob();
     }
   };
@@ -835,7 +829,7 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
                           onValueChange={(value) => setPlantGeneratorSettings(prev => ({ ...prev, template: value }))}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Choose template" />
+                            <SelectValue placeholder="Choose a preset..." />
                           </SelectTrigger>
                           <SelectContent>
                             {Object.entries(PLANT_TEMPLATES).map(([key, label]) => (
@@ -960,7 +954,7 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
                           onValueChange={(value) => setNonPlantGeneratorSettings(prev => ({ ...prev, template: value }))}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Choose template" />
+                            <SelectValue placeholder="Choose a preset..." />
                           </SelectTrigger>
                           <SelectContent>
                             {Object.entries(NON_PLANT_TEMPLATES).map(([key, label]) => (
