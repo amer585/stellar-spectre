@@ -188,7 +188,144 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
   const canProceedToTesting = trainingResult !== null;
   const canProceedToExport = trainingResult !== null;
 
-  // Generate plant images using Cosmic Vision AI
+  // Helper function to select a random element from an array
+  const selectRandom = (array: string[]) => array[Math.floor(Math.random() * array.length)];
+
+  // Plant prompt engineering arrays (from Cosmic Vision AI)
+  const PLANT_STYLE_PRESETS = {
+    'Photorealistic': 'hyper-realistic, photorealistic, cinematic lighting, 16K, IMAX quality, extreme detail',
+    'Cinematic': 'epic, monumental, wide-angle film shot, high contrast, deep shadows, Hollywood style',
+    'JWST Style': 'James Webb Space Telescope style, deep field, high-fidelity, infrared color palette',
+    'Classic Science': 'educational astronomy textbook style, clear surface detail, simple orbital perspective, natural colors'
+  };
+
+  const PLANT_AVAILABLE_STYLES = Object.keys(PLANT_STYLE_PRESETS);
+  const PLANT_AVAILABLE_ASPECT_RATIOS = ['16:9', '1:1', '9:16', '4:3'];
+
+  const PLANT_ATMOSPHERE_EFFECTS = [
+    'volumetric blue atmospheric effects', 'thick, swirling red dust clouds', 'thin, ethereal layer of nitrogen haze', 
+    'dense, metallic methane fog', 'bioluminescent atmosphere glowing green and purple', 'intense global lightning storms'
+  ];
+  const PLANT_LIGHTING_SCENARIOS = [
+    'dramatic rim lighting from a hidden primary star', 'intense backlighting creating a sharp crescent',
+    'soft twilight illumination revealing surface contours', 'a planet-wide eclipse casting deep shadows',
+    'reflected light from a nearby moon'
+  ];
+  const PLANT_SURFACE_DETAILS = [
+    'vast, deep canyons and mountain ranges', 'frozen nitrogen plains with jagged ice flows', 
+    'active volcanic vents and magma rivers', 'giant impact craters and metallic deserts',
+    'global ocean world covered in thick pack ice', 'alien flora covering one hemisphere'
+  ];
+  const PLANT_RING_DETAILS = [
+    'complex, multi-layered ring system with shepherds moons', 'thin, dusty, barely visible rings of ice debris',
+    'broad, dark rings composed of carbonaceous material', 'no rings'
+  ];
+  const PLANT_CAMERA_VIEWPOINTS = [
+    'extreme low orbit perspective, telephoto lens, close focus on surface', 'shot from behind a nebula cloud, wide shot', 
+    'high-angle orbital view, showing the polar vortex', 'close-up on the terminator line, ultra-detailed',
+    'wide-angle view with a massive shadow cast by an unseen object', 'telecopic view from Earth orbit'
+  ];
+  const PLANT_TECHNICAL_ENHANCEMENTS = [
+    'HDR imaging, stacked exposures, high dynamic range', 'f/1.4 aperture, perfect focus',
+    'astrometry calibration, minimal noise reduction, deep black void', 'star-stacked background, ultra-sharp'
+  ];
+
+  const PLANT_QUICK_TEMPLATES = {
+    'exoplanet': 'A massive terrestrial exoplanet in the habitable zone, with liquid water oceans and clouds over vast continents.',
+    'gasgiant': 'A colorful gas giant with powerful banded jet streams and a massive Great Red Spot-style storm.',
+    'nebula': 'A vibrant star-forming nebula with dramatic pillars of gas and dust illuminated by young, hot stars.',
+    'galaxy': 'A majestic barred spiral galaxy seen edge-on with dark dust lanes and a glowing central core.'
+  };
+  const PLANT_TEMPLATE_PROMPTS = Object.values(PLANT_QUICK_TEMPLATES);
+
+  // Non-plant prompt engineering arrays (from Dream Weaver AI)
+  const NON_PLANT_STYLE_PRESETS = {
+    'Photorealistic': 'hyper-realistic, studio lighting, highly detailed, 16K, photoreal',
+    'Cinematic': 'epic, wide-angle film shot, bokeh, deep shadows, Hollywood style, high-contrast',
+    'Oil Painting': 'detailed Renaissance oil painting, fine brushstrokes, rich textures, chiaroscuro lighting',
+    'Digital Art': 'vibrant colors, stylized rendering, sharp lines, detailed digital painting',
+    'Ink Sketch': 'monochromatic ink on paper, fine line work, intricate detail, traditional sketch',
+    'AI Training Data': 'neutral background, sharp focus on subject, varied angles and lighting, clear object segmentation, minimal artistic effects, high dynamic range, no artifacts, clean edges, lossless detail',
+    'High-Contrast Abstract': 'sharp geometric forms, bold color block, non-photorealistic, vector graphic look, clear lines, synthetic data aesthetic',
+  };
+
+  const NON_PLANT_AVAILABLE_STYLES = Object.keys(NON_PLANT_STYLE_PRESETS);
+  const NON_PLANT_AVAILABLE_ASPECT_RATIOS = ['1:1', '16:9', '9:16', '4:3'];
+
+  const NON_PLANT_ENVIRONMENT_DETAILS = [
+    'white seamless studio background', 'pure black background, single light source', 
+    'concrete industrial warehouse, even bright lighting', 'pure white background, flat even lighting (for silhouette training)', 
+    'busy marketplace in midday sun', 'cluttered kitchen countertop, top-down view',
+    'soft golden hour light filtering through trees', 'thick, swirling steam and fog on cobblestones', 
+    'intense, deep blue underwater environment', 'dry, cracked earth and desolate desert landscape', 
+    'rainy night with city lights reflecting on wet pavement', 'misty morning in a blooming meadow',
+    'procedural grid pattern texture', 'seamless metallic surface with fine scratches',
+  ];
+  const NON_PLANT_SUBJECT_DETAILS = [
+    'common household object like a ceramic mug or wooden chair', 'detailed portrait of an elderly person, clearly defined facial features',
+    'a specific breed of dog (e.g., golden retriever), clearly defined form', 'industrial robot arm performing a task',
+    'intricate mechanical clockwork mechanisms', 'a tapestry of blooming flowers and moss', 
+    'weathered stone architecture with overgrown ivy', 'smooth reflective surface of a highly polished diamond',
+    'glowing magical runes and energy effects', 'complex geometric patterns in gold and marble',
+    'complex interlocking geometric shapes (cubes, spheres, pyramids)', 'abstract knot or loop made of polished chrome', 
+    'a data visualization graph rendered in 3D space', 'glowing transparent fluid moving inside a glass pipe',
+  ];
+  const NON_PLANT_CAMERA_VIEWPOINTS = [
+    'standard frontal view, eye-level perspective', 'high-angle shot looking down onto the subject',
+    'silhouetted against a bright window', 'backlit with rim lighting',
+    'extreme close-up macro shot, shallow depth of field', 'wide cinematic panorama, low-angle perspective',
+  ];
+
+  const NON_PLANT_QUICK_TEMPLATES = {
+    'abstract_data_texture': 'Synthetic abstract data texture with geometric patterns.',
+    'fantasy_forest': 'Ancient fantasy forest with glowing trees and mystical creatures.',
+    'cyberpunk_city': 'Neo-Tokyo cyberpunk city with neon lights and flying cars.',
+    'abstract_sculpture': 'Abstract art sculpture in a modern gallery.',
+    'historical_ship': '17th century galleon sailing on stormy seas.'
+  };
+  const NON_PLANT_TEMPLATE_PROMPTS = Object.values(NON_PLANT_QUICK_TEMPLATES);
+
+  // Helper for exponential backoff retry
+  const fetchWithRetry = async (url: string, options: RequestInit, maxRetries = 5) => {
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        const response = await fetch(url, options);
+        
+        if (response.status === 429) {
+          const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+
+        if (response.ok) {
+          return response;
+        }
+
+        const contentLength = response.headers.get('content-length');
+        if (contentLength && parseInt(contentLength, 10) > 0) {
+          return response;
+        }
+
+        if (i < maxRetries - 1) {
+          const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+
+        throw new Error(`API returned status ${response.status} ${response.statusText} and an empty response body.`);
+      } catch (error) {
+        if (i < maxRetries - 1) {
+          const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          throw error;
+        }
+      }
+    }
+    throw new Error("API request failed after multiple retries.");
+  };
+
+  // Generate plant images using Google Imagen API (adapted from Cosmic Vision AI)
   const generatePlantImages = async () => {
     if (!plantGeneratorSettings.prompt && plantGeneratorSettings.template !== 'Random') {
       toast.error('Please enter a prompt or select Random template');
@@ -200,29 +337,88 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
     setProgress(0);
 
     try {
-      // Simulate the Cosmic Vision AI generation process
       const images: GeneratedImage[] = [];
-      
-      for (let i = 0; i < plantGeneratorSettings.count; i++) {
-        setProgress((i / plantGeneratorSettings.count) * 100);
-        setCurrentPhase(`Generating plant image ${i + 1} of ${plantGeneratorSettings.count}...`);
-        
-        // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Generate a mock base64 image (in real implementation, this would call the actual API)
-        const mockBase64 = generateMockImageBase64('plant');
-        
-        images.push({
-          base64: mockBase64,
-          prompt: plantGeneratorSettings.prompt || 'Random plant image',
-          id: `generated_plant_${Date.now()}_${i}`,
-          category: 'plant'
+      const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict";
+      const apiKey = "YOUR_KEY";  // Replace with your actual Google API key
+      const fullApiUrl = `${apiUrl}?key=${apiKey}`;
+      const maxSamplesPerRequest = 4;
+      const total = plantGeneratorSettings.count;
+      const totalRequests = Math.ceil(total / maxSamplesPerRequest);
+      let generatedCount = 0;
+
+      for (let req = 0; req < totalRequests; req++) {
+        const samplesToRequest = Math.min(maxSamplesPerRequest, total - generatedCount);
+        setCurrentPhase(`Generating plant batch ${req + 1} of ${totalRequests}...`);
+
+        // Randomization per batch
+        let currentBasePrompt = plantGeneratorSettings.prompt;
+        if (plantGeneratorSettings.template === 'Random') {
+          currentBasePrompt = selectRandom(PLANT_TEMPLATE_PROMPTS);
+        } else if (plantGeneratorSettings.template) {
+          currentBasePrompt = PLANT_QUICK_TEMPLATES[plantGeneratorSettings.template as keyof typeof PLANT_QUICK_TEMPLATES] || currentBasePrompt;
+        }
+
+        const currentStyle = plantGeneratorSettings.style === 'Random' 
+          ? selectRandom(PLANT_AVAILABLE_STYLES) 
+          : plantGeneratorSettings.style;
+
+        const currentRatio = plantGeneratorSettings.aspectRatio === 'Random' 
+          ? selectRandom(PLANT_AVAILABLE_ASPECT_RATIOS) 
+          : plantGeneratorSettings.aspectRatio;
+
+        // Generate complex prompt
+        const presetKeywords = PLANT_STYLE_PRESETS[currentStyle as keyof typeof PLANT_STYLE_PRESETS] || PLANT_STYLE_PRESETS['Photorealistic'];
+        const randomComponents = [
+          selectRandom(PLANT_ATMOSPHERE_EFFECTS),
+          selectRandom(PLANT_LIGHTING_SCENARIOS),
+          selectRandom(PLANT_SURFACE_DETAILS),
+          selectRandom(PLANT_RING_DETAILS),
+          selectRandom(PLANT_CAMERA_VIEWPOINTS),
+          selectRandom(PLANT_TECHNICAL_ENHANCEMENTS)
+        ];
+        const realismInstruction = 'scientifically accurate, high detail, deep space void background, no text, no watermark';
+        const finalPrompt = [currentBasePrompt, presetKeywords, ...randomComponents, realismInstruction].filter(part => part).join(', ') + '. Ensure this specific image is highly unique and visually diverse from all others generated in this batch. Vary lighting, composition, and detail.';
+
+        const payload = {
+          instances: [{ prompt: finalPrompt }],
+          parameters: {
+            sampleCount: samplesToRequest,
+            aspectRatio: currentRatio,
+            outputMimeType: "image/png"
+          }
+        };
+
+        const response = await fetchWithRetry(fullApiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
         });
+
+        const result = await response.json();
+        if (!result.predictions || result.predictions.length === 0) {
+          throw new Error(`No predictions returned for batch ${req + 1}`);
+        }
+
+        result.predictions.forEach((prediction: { bytesBase64Encoded: string }, index: number) => {
+          const base64 = prediction.bytesBase64Encoded;
+          if (base64) {
+            images.push({
+              base64,
+              prompt: finalPrompt,
+              id: `generated_plant_${Date.now()}_${generatedCount + index}`,
+              category: 'plant'
+            });
+          }
+        });
+
+        generatedCount += samplesToRequest;
+        setProgress((generatedCount / total) * 100);
+
+        // Delay between requests
+        await new Promise(resolve => setTimeout(resolve, 1500));
       }
 
       setGeneratedPlantImages(prev => [...prev, ...images]);
-      setProgress(100);
       toast.success(`Generated ${images.length} plant images successfully!`);
       
     } catch (error) {
@@ -235,7 +431,7 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
     }
   };
 
-  // Generate non-plant images using Dream Weaver AI
+  // Generate non-plant images using Google Imagen API (adapted from Dream Weaver AI)
   const generateNonPlantImages = async () => {
     if (!nonPlantGeneratorSettings.prompt && nonPlantGeneratorSettings.template !== 'Random') {
       toast.error('Please enter a prompt or select Random template');
@@ -247,29 +443,83 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
     setProgress(0);
 
     try {
-      // Simulate the Dream Weaver AI generation process
       const images: GeneratedImage[] = [];
-      
-      for (let i = 0; i < nonPlantGeneratorSettings.count; i++) {
-        setProgress((i / nonPlantGeneratorSettings.count) * 100);
-        setCurrentPhase(`Generating non-plant image ${i + 1} of ${nonPlantGeneratorSettings.count}...`);
-        
-        // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Generate a mock base64 image (in real implementation, this would call the actual API)
-        const mockBase64 = generateMockImageBase64('non_plant');
-        
-        images.push({
-          base64: mockBase64,
-          prompt: nonPlantGeneratorSettings.prompt || 'Random non-plant image',
-          id: `generated_non_plant_${Date.now()}_${i}`,
-          category: 'non_plant'
+      const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict";
+      const apiKey = "YOUR_KEY";  // Replace with your actual Google API key
+      const fullApiUrl = `${apiUrl}?key=${apiKey}`;
+      const maxSamplesPerRequest = 1;  // Set to 1 for maximum uniqueness per prompt
+      const total = nonPlantGeneratorSettings.count;
+      const totalRequests = total;  // One per image
+      let generatedCount = 0;
+
+      for (let req = 0; req < totalRequests; req++) {
+        const samplesToRequest = 1;
+        setCurrentPhase(`Generating non-plant image ${req + 1} of ${total}...`);
+
+        // Randomization per image
+        let currentBasePrompt = nonPlantGeneratorSettings.prompt;
+        if (nonPlantGeneratorSettings.template === 'Random') {
+          currentBasePrompt = selectRandom(NON_PLANT_TEMPLATE_PROMPTS);
+        } else if (nonPlantGeneratorSettings.template) {
+          currentBasePrompt = NON_PLANT_QUICK_TEMPLATES[nonPlantGeneratorSettings.template as keyof typeof NON_PLANT_QUICK_TEMPLATES] || currentBasePrompt;
+        }
+
+        const currentStyle = nonPlantGeneratorSettings.style === 'Random' 
+          ? selectRandom(NON_PLANT_AVAILABLE_STYLES) 
+          : nonPlantGeneratorSettings.style;
+
+        const currentRatio = nonPlantGeneratorSettings.aspectRatio === 'Random' 
+          ? selectRandom(NON_PLANT_AVAILABLE_ASPECT_RATIOS) 
+          : nonPlantGeneratorSettings.aspectRatio;
+
+        // Generate complex prompt
+        const presetKeywords = NON_PLANT_STYLE_PRESETS[currentStyle as keyof typeof NON_PLANT_STYLE_PRESETS] || NON_PLANT_STYLE_PRESETS['AI Training Data'];
+        const randomComponents = [
+          selectRandom(NON_PLANT_ENVIRONMENT_DETAILS),
+          selectRandom(NON_PLANT_SUBJECT_DETAILS),
+          selectRandom(NON_PLANT_CAMERA_VIEWPOINTS),
+        ];
+        const realismInstruction = 'high detail, no celestial objects, no text, no watermark';
+        const finalPrompt = [currentBasePrompt, presetKeywords, ...randomComponents, realismInstruction].filter(part => part).join(', ') + '. Ensure this specific image is highly unique and visually diverse from all others generated in this batch. Vary the composition, color, angle, and focal point.';
+
+        const payload = {
+          instances: [{ prompt: finalPrompt }],
+          parameters: {
+            sampleCount: samplesToRequest,
+            aspectRatio: currentRatio,
+            outputMimeType: "image/png"
+          }
+        };
+
+        const response = await fetchWithRetry(fullApiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
         });
+
+        const result = await response.json();
+        if (!result.predictions || result.predictions.length === 0) {
+          throw new Error(`No predictions returned for image ${req + 1}`);
+        }
+
+        const base64 = result.predictions[0].bytesBase64Encoded;
+        if (base64) {
+          images.push({
+            base64,
+            prompt: finalPrompt,
+            id: `generated_non_plant_${Date.now()}_${generatedCount}`,
+            category: 'non_plant'
+          });
+        }
+
+        generatedCount += samplesToRequest;
+        setProgress((generatedCount / total) * 100);
+
+        // Delay between requests
+        await new Promise(resolve => setTimeout(resolve, 1500));
       }
 
       setGeneratedNonPlantImages(prev => [...prev, ...images]);
-      setProgress(100);
       toast.success(`Generated ${images.length} non-plant images successfully!`);
       
     } catch (error) {
@@ -282,15 +532,15 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
     }
   };
 
-  // FIX: Updated the mock image generator to produce visible, distinct placeholders.
-  const generateMockImageBase64 = (type: 'plant' | 'non_plant'): string => {
-    if (type === 'plant') {
-      // A base64 encoded SVG of a green square
-      return 'PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MCIgaGVpZ2h0PSI1MCI+PHJlY3Qgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjMmY4NTUwIiAvPjwvc3ZnPg==';
-    } else {
-      // A base64 encoded SVG of a blue square
-      return 'PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MCIgaGVpZ2h0PSI1MCI+PHJlY3Qgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjM2I4MmY2IiAvPjwvc3ZnPg==';
+  // Base64 to Blob for upload
+  const base64ToBlob = (base64: string) => {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
     }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new Blob([byteArray], { type: 'image/png' });
   };
 
   // Handle file selection for manual mode
@@ -299,10 +549,12 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
       const newFiles: UploadedFile[] = [];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
+        // Validate file type
         if (!file.type.startsWith('image/')) {
           toast.error(`${file.name} is not an image file`);
           continue;
         }
+        // Validate file size (max 10MB per image)
         if (file.size > 10 * 1024 * 1024) {
           toast.error(`${file.name} is larger than 10MB`);
           continue;
@@ -384,84 +636,124 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
       let uploadedCount = 0;
       const totalFiles = plantImages.length + nonPlantImages.length + generatedPlantImages.length + generatedNonPlantImages.length;
 
-      for (const uploadFile of [...plantImages, ...nonPlantImages]) {
-        const isPlant = uploadFile.category === 'plant';
-        const fileName = `manual_dataset/${isPlant ? 'plant' : 'non_plant'}/${uploadFile.id}_${uploadFile.file.name}`;
+      // Upload manual files
+      for (const uploadFile of plantImages) {
+        const fileName = `manual_dataset/plant/${uploadFile.id}_${uploadFile.file.name}`;
         const { error } = await supabase.storage
           .from('training-datasets')
           .upload(fileName, uploadFile.file);
         
-        if (!error) {
-          await supabase.from('image_metadata').insert({
-            id: uploadFile.id,
-            user_id: userId,
-            title: uploadFile.file.name,
-            source: 'Manual_Upload',
-            category: uploadFile.category,
-            file_path: fileName,
-            metadata: {
-              originalName: uploadFile.file.name,
-              fileSize: uploadFile.file.size,
-              uploadDate: new Date().toISOString(),
-              dataType: 'manual',
-            },
-          });
-        }
+        if (error) throw error;
+        
+        await supabase.from('image_metadata').insert({
+          id: uploadFile.id,
+          user_id: userId,
+          title: uploadFile.file.name,
+          source: 'Manual_Upload',
+          category: 'plant',
+          file_path: fileName,
+          metadata: {
+            originalName: uploadFile.file.name,
+            fileSize: uploadFile.file.size,
+            uploadDate: new Date().toISOString(),
+            dataType: 'manual',
+          },
+        });
+        
         uploadedCount++;
         setProgress((uploadedCount / totalFiles) * 100);
       }
 
-      for (const genImage of [...generatedPlantImages, ...generatedNonPlantImages]) {
-        const isPlant = genImage.category === 'plant';
-        const fileName = `generated_dataset/${isPlant ? 'plant' : 'non_plant'}/${genImage.id}.svg`;
+      for (const uploadFile of nonPlantImages) {
+        const fileName = `manual_dataset/non_plant/${uploadFile.id}_${uploadFile.file.name}`;
+        const { error } = await supabase.storage
+          .from('training-datasets')
+          .upload(fileName, uploadFile.file);
+        
+        if (error) throw error;
+        
+        await supabase.from('image_metadata').insert({
+          id: uploadFile.id,
+          user_id: userId,
+          title: uploadFile.file.name,
+          source: 'Manual_Upload',
+          category: 'non_plant',
+          file_path: fileName,
+          metadata: {
+            originalName: uploadFile.file.name,
+            fileSize: uploadFile.file.size,
+            uploadDate: new Date().toISOString(),
+            dataType: 'manual',
+          },
+        });
+        
+        uploadedCount++;
+        setProgress((uploadedCount / totalFiles) * 100);
+      }
+
+      // Upload generated images
+      for (const genImage of generatedPlantImages) {
+        const fileName = `generated_dataset/plant/${genImage.id}.png`;
         const blob = base64ToBlob(genImage.base64);
         
         const { error } = await supabase.storage
           .from('training-datasets')
           .upload(fileName, blob);
         
-        if (!error) {
-          await supabase.from('image_metadata').insert({
-            id: genImage.id,
-            user_id: userId,
-            title: `Generated ${isPlant ? 'Plant' : 'Non-Plant'}: ${genImage.prompt.substring(0, 50)}`,
-            source: isPlant ? 'Cosmic_Vision_AI' : 'Dream_Weaver_AI',
-            category: genImage.category,
-            file_path: fileName,
-            metadata: {
-              prompt: genImage.prompt,
-              generatedDate: new Date().toISOString(),
-              dataType: 'generated',
-            },
-          });
-        }
+        if (error) throw error;
+        
+        await supabase.from('image_metadata').insert({
+          id: genImage.id,
+          user_id: userId,
+          title: `Generated Plant Image`,
+          source: 'Cosmic_Vision_AI',
+          category: 'plant',
+          file_path: fileName,
+          metadata: {
+            prompt: genImage.prompt,
+            generationDate: new Date().toISOString(),
+            dataType: 'generated',
+          },
+        });
+        
         uploadedCount++;
         setProgress((uploadedCount / totalFiles) * 100);
       }
 
-      const stats: PlantDatasetStats = {
-        totalImages: totalFiles,
-        plantImages: plantCount,
-        nonPlantImages: nonPlantCount,
-        sources: {
-          Manual_Upload: plantImages.length + nonPlantImages.length,
-          Cosmic_Vision_AI: generatedPlantImages.length,
-          Dream_Weaver_AI: generatedNonPlantImages.length
-        },
-        plantTypes: { Generated: generatedPlantImages.length, Uploaded: plantImages.length },
-        lightingConditions: { Mixed: totalFiles },
-        resolutions: { Variable: totalFiles },
-        backgrounds: { Mixed: totalFiles },
-      };
+      for (const genImage of generatedNonPlantImages) {
+        const fileName = `generated_dataset/non_plant/${genImage.id}.png`;
+        const blob = base64ToBlob(genImage.base64);
+        
+        const { error } = await supabase.storage
+          .from('training-datasets')
+          .upload(fileName, blob);
+        
+        if (error) throw error;
+        
+        await supabase.from('image_metadata').insert({
+          id: genImage.id,
+          user_id: userId,
+          title: `Generated Non-Plant Image`,
+          source: 'Dream_Weaver_AI',
+          category: 'non_plant',
+          file_path: fileName,
+          metadata: {
+            prompt: genImage.prompt,
+            generationDate: new Date().toISOString(),
+            dataType: 'generated',
+          },
+        });
+        
+        uploadedCount++;
+        setProgress((uploadedCount / totalFiles) * 100);
+      }
 
-      setDatasetStats(stats);
-      setProgress(100);
-      setCurrentPhase('Dataset upload completed!');
-      toast.success(`Successfully uploaded ${totalFiles} images (${plantCount} plants, ${nonPlantCount} non-plants)`);
-      
+      toast.success('Dataset uploaded successfully!');
+      setCurrentTab('training');
+
     } catch (error) {
-      console.error('Error uploading dataset:', error);
-      toast.error('Failed to upload dataset. Please try again.');
+      console.error('Upload error:', error);
+      toast.error('Failed to upload dataset');
     } finally {
       setUploading(false);
       setProgress(0);
@@ -469,782 +761,313 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
     }
   };
 
-  const base64ToBlob = (base64Data: string): Blob => {
-    const base64 = base64Data.startsWith('data:image')
-      ? base64Data.split(',')[1]
-      : base64Data;
-    try {
-      const byteCharacters = atob(base64);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      // FIX: Changed Blob type to match the new SVG placeholder images
-      return new Blob([byteArray], { type: 'image/svg+xml' });
-    } catch (error) {
-      console.error("Failed to decode base64 string:", error);
-      return new Blob();
-    }
-  };
-
+  // Mock training for now (replace with real if needed)
   const trainPlantDetectionModel = async () => {
-    if (!canProceedToTraining) {
-      toast.error('Please collect at least 150 total images (100 plants, 50 non-plants) before training.');
-      return;
-    }
     setLoading(true);
     setProgress(0);
-    setCurrentPhase('Initializing model training...');
+    setCurrentPhase('Training model...');
 
-    try {
-      const progressUpdates = [
-        { progress: 10, phase: 'Loading dataset and preprocessing images...' },
-        { progress: 20, phase: `Initializing ${modelArchitecture.toUpperCase()} with ImageNet pretrained weights...` },
-        { progress: 30, phase: 'Setting up data augmentation pipeline...' },
-        { progress: 40, phase: 'Starting transfer learning - freezing backbone layers...' },
-        { progress: 50, phase: 'Training classification head (phase 1)...' },
-        { progress: 65, phase: 'Fine-tuning backbone layers (phase 2)...' },
-        { progress: 80, phase: 'Advanced training with learning rate scheduling...' },
-        { progress: 90, phase: 'Validating model performance...' },
-        { progress: 95, phase: 'Exporting model formats...' },
-        { progress: 98, phase: 'Deploying to inference endpoint...' },
-      ];
-      
-      for (const update of progressUpdates) {
-        setProgress(update.progress);
-        setCurrentPhase(update.phase);
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+    // Simulate training
+    await new Promise(resolve => setTimeout(resolve, 5000));
+
+    setTrainingResult({
+      modelId: 'mock-model-123',
+      endpointUrl: 'https://mock-endpoint.com',
+      evaluation: {
+        accuracy: 0.95,
+        precision: 0.94,
+        recall: 0.96,
+        f1Score: 0.95,
+        confusionMatrix: [[100, 5], [4, 100]],
+        testAccuracy: 0.93,
+        validationAccuracy: 0.94,
+        trainingAccuracy: 0.97,
+        auc: 0.98
+      },
+      trainingHistory: [],
+      config: {},
+      modelFormats: {
+        onnx: 'mock-onnx',
+        tensorflow: 'mock-tf'
       }
+    });
 
-      const mockResult: TrainingResult = {
-        modelId: `plant_detector_${Date.now()}`,
-        endpointUrl: `https://api.example.com/models/plant_detector_${Date.now()}`,
-        evaluation: {
-          accuracy: 0.92 + Math.random() * 0.05,
-          precision: 0.89 + Math.random() * 0.06,
-          recall: 0.87 + Math.random() * 0.08,
-          f1Score: 0.88 + Math.random() * 0.07,
-          confusionMatrix: [[45, 5], [3, 47]],
-          testAccuracy: 0.91 + Math.random() * 0.05,
-          validationAccuracy: 0.90 + Math.random() * 0.06,
-          trainingAccuracy: 0.94 + Math.random() * 0.04,
-          auc: 0.95 + Math.random() * 0.04
-        },
-        trainingHistory: [],
-        config: {
-          modelArchitecture,
-          imageSize,
-          batchSize,
-          epochs,
-          learningRate
-        },
-        modelFormats: {
-          onnx: `plant_detector_${Date.now()}.onnx`,
-          tensorflow: `plant_detector_${Date.now()}.pb`
-        }
-      };
-
-      setTrainingResult(mockResult);
-      setProgress(100);
-      setCurrentPhase('Model training completed successfully!');
-      toast.success(`Model training complete! Accuracy: ${(mockResult.evaluation.accuracy * 100).toFixed(2)}%`);
-      
-    } catch (error) {
-      console.error('Error training model:', error);
-      toast.error('Failed to train model. Please try again.');
-    } finally {
-      setLoading(false);
-      setProgress(0);
-      setCurrentPhase('');
-    }
+    setLoading(false);
+    setProgress(100);
+    setCurrentPhase('');
   };
 
-  const testPlantModel = async (imageFile: File) => {
-    if (!trainingResult) {
-      toast.error('Please train a model first.');
-      return;
-    }
-    
+  // Mock testing for now
+  const testPlantModel = async (file: File) => {
     setLoading(true);
-    setCurrentPhase('Processing image for plant detection...');
-    
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      const isPlant = Math.random() > 0.5;
-      const confidence = 0.7 + Math.random() * 0.25;
-      toast.success(`${isPlant ? 'Plant' : 'Non-Plant'} detected with ${(confidence * 100).toFixed(1)}% confidence`);
-    } catch (error) {
-      console.error('Error testing model:', error);
-      toast.error('Failed to run plant detection inference.');
-    } finally {
-      setLoading(false);
-      setCurrentPhase('');
-    }
+    setCurrentPhase('Testing image...');
+
+    // Simulate
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    toast.success('Test complete: Plant detected with 95% confidence');
+
+    setLoading(false);
+    setCurrentPhase('');
   };
 
-  const downloadModel = async (format: 'onnx' | 'tensorflow') => {
-    if (!trainingResult) {
-      toast.error('Please train a model first.');
-      return;
-    }
-    try {
-      const modelData = new Uint8Array(1024);
-      const blob = new Blob([modelData], { type: 'application/octet-stream' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `plant_detector.${format === 'onnx' ? 'onnx' : 'pb'}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success(`${format.toUpperCase()} model downloaded successfully`);
-    } catch (error) {
-      console.error('Error downloading model:', error);
-      toast.error('Failed to download model.');
-    }
+  // Mock download
+  const downloadModel = (format: 'onnx' | 'tensorflow') => {
+    toast.info(`Downloading ${format} model...`);
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Brain className="h-5 w-5" />
-          Plant Detection AI System
-        </CardTitle>
-        <CardDescription>
-          Complete ML pipeline: Generate/Upload data → Train model → Test → Export
-        </CardDescription>
+        <CardTitle>AI-Enhanced Plant Detection Analysis</CardTitle>
+        <CardDescription>Build and train your custom model</CardDescription>
       </CardHeader>
       <CardContent>
         <Tabs value={currentTab} onValueChange={setCurrentTab}>
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="mode-selection">Mode</TabsTrigger>
-            <TabsTrigger 
-              value="dataset" 
-              disabled={!dataMode}
-              className={!dataMode ? "opacity-50 cursor-not-allowed" : ""}
-            >
-              Dataset Collection
-            </TabsTrigger>
-            <TabsTrigger 
-              value="training"
-              disabled={!canProceedToTraining}
-              className={!canProceedToTraining ? "opacity-50 cursor-not-allowed" : ""}
-            >
-              Model Training
-            </TabsTrigger>
-            <TabsTrigger 
-              value="testing"
-              disabled={!canProceedToTesting}
-              className={!canProceedToTesting ? "opacity-50 cursor-not-allowed" : ""}
-            >
-              Testing & Inference
-            </TabsTrigger>
-            <TabsTrigger 
-              value="export"
-              disabled={!canProceedToExport}
-              className={!canProceedToExport ? "opacity-50 cursor-not-allowed" : ""}
-            >
-              Model Export
-            </TabsTrigger>
+            <TabsTrigger value="data-collection">Data Collection</TabsTrigger>
+            <TabsTrigger value="training" disabled={!canProceedToTraining}>Training</TabsTrigger>
+            <TabsTrigger value="testing" disabled={!canProceedToTesting}>Testing</TabsTrigger>
+            <TabsTrigger value="export" disabled={!canProceedToExport}>Export</TabsTrigger>
           </TabsList>
 
           <TabsContent value="mode-selection" className="space-y-6">
-            <div className="text-center space-y-4 pt-4">
-              <h3 className="text-xl font-semibold">Choose Data Collection Mode</h3>
-              <p className="text-muted-foreground">
-                Select how you want to gather training data for your plant detection model
-              </p>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setDataMode('generator')}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Wand2 className="h-5 w-5 text-purple-500" />
-                    AI Image Generation
-                  </CardTitle>
-                  <CardDescription>
-                    Generate custom plant and non-plant images using AI
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-green-500" />
-                      <span>Cosmic Vision AI for plant images</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-blue-500" />
-                      <span>Dream Weaver AI for non-plant images</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Settings className="h-4 w-4 text-yellow-500" />
-                      <span>Customizable prompts and styles</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setDataMode('manual')}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Upload className="h-5 w-5 text-blue-500" />
-                    Manual Upload
-                  </CardTitle>
-                  <CardDescription>
-                    Upload your own images and folders
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center gap-2">
-                      <FolderOpen className="h-4 w-4 text-green-500" />
-                      <span>Drag & drop folders and files</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <ImagePlus className="h-4 w-4 text-blue-500" />
-                      <span>Multiple file selection</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Target className="h-4 w-4 text-yellow-500" />
-                      <span>Full control over data quality</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {dataMode && (
-              <div className="text-center pt-6">
-                <Button
-                  onClick={() => setCurrentTab('dataset')}
-                  className="px-8"
-                  size="lg"
-                >
-                  Continue with {dataMode === 'generator' ? 'AI Generation' : 'Manual Upload'} Mode
-                </Button>
-              </div>
-            )}
+            {/* Mode selection UI */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Button onClick={() => { setDataMode('generator'); setCurrentTab('data-collection'); }}>
+                    AI Image Generator Mode
+                  </Button>
+                  <Button onClick={() => { setDataMode('manual'); setCurrentTab('data-collection'); }}>
+                    Manual Upload Mode
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
-          <TabsContent value="dataset" className="space-y-6">
-            {dataMode === 'generator' ? (
+          <TabsContent value="data-collection" className="space-y-6">
+            {dataMode === 'generator' && (
               <div className="space-y-8">
-                <div className="text-center">
-                  <h3 className="text-xl font-semibold mb-2">AI Image Generation</h3>
-                  <p className="text-muted-foreground">
-                    Generate custom training images using specialized AI models
-                  </p>
-                </div>
-
+                {/* Plant Generator */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Leaf className="h-5 w-5 text-green-500" />
-                      Cosmic Vision AI - Plant Images
-                    </CardTitle>
-                    <CardDescription>
-                      Generate realistic plant and celestial object images
-                    </CardDescription>
+                    <CardTitle>Plant Image Generator (Cosmic Vision AI)</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <Label>Template</Label>
-                        <Select
-                          value={plantGeneratorSettings.template}
-                          onValueChange={(value) => setPlantGeneratorSettings(prev => ({ ...prev, template: value }))}
-                        >
+                        <Select value={plantGeneratorSettings.template} onValueChange={(v) => setPlantGeneratorSettings(prev => ({ ...prev, template: v }))}>
                           <SelectTrigger>
-                            <SelectValue placeholder="Choose a preset..." />
+                            <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {Object.entries(PLANT_TEMPLATES).map(([key, label]) => (
-                              <SelectItem key={key} value={key}>{label}</SelectItem>
+                            {Object.entries(PLANT_TEMPLATES).map(([key, value]) => (
+                              <SelectItem key={key} value={key}>{value}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
-                      
                       <div>
                         <Label>Style</Label>
-                        <Select
-                          value={plantGeneratorSettings.style}
-                          onValueChange={(value) => setPlantGeneratorSettings(prev => ({ ...prev, style: value }))}
-                        >
+                        <Select value={plantGeneratorSettings.style} onValueChange={(v) => setPlantGeneratorSettings(prev => ({ ...prev, style: v }))}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {Object.entries(PLANT_STYLES).map(([key, label]) => (
-                              <SelectItem key={key} value={key}>{label}</SelectItem>
+                            {Object.entries(PLANT_STYLES).map(([key, value]) => (
+                              <SelectItem key={key} value={key}>{value}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
-                      
                       <div>
                         <Label>Aspect Ratio</Label>
-                        <Select
-                          value={plantGeneratorSettings.aspectRatio}
-                          onValueChange={(value) => setPlantGeneratorSettings(prev => ({ ...prev, aspectRatio: value }))}
-                        >
+                        <Select value={plantGeneratorSettings.aspectRatio} onValueChange={(v) => setPlantGeneratorSettings(prev => ({ ...prev, aspectRatio: v }))}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {Object.entries(ASPECT_RATIOS).map(([key, label]) => (
-                              <SelectItem key={key} value={key}>{label}</SelectItem>
+                            {Object.entries(ASPECT_RATIOS).map(([key, value]) => (
+                              <SelectItem key={key} value={key}>{value}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
                     </div>
-
                     <div>
-                      <Label>Custom Prompt</Label>
-                      <Textarea
-                        placeholder="Describe your celestial object (e.g., A molten lava ocean world with two green suns in the sky)"
-                        value={plantGeneratorSettings.prompt}
+                      <Label>Prompt</Label>
+                      <Textarea 
+                        value={plantGeneratorSettings.prompt} 
                         onChange={(e) => setPlantGeneratorSettings(prev => ({ ...prev, prompt: e.target.value }))}
-                        rows={3}
+                        placeholder="Describe your celestial object"
                       />
                     </div>
-
-                    <div className="flex items-center gap-4">
-                      <div>
-                        <Label>Number of Images</Label>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={100}
-                          value={plantGeneratorSettings.count}
-                          onChange={(e) => setPlantGeneratorSettings(prev => ({ ...prev, count: parseInt(e.target.value) || 10 }))}
-                          className="w-24"
-                        />
-                      </div>
-                      
-                      <Button
-                        onClick={generatePlantImages}
-                        disabled={loading}
-                        className="bg-green-600 hover:bg-green-700"
-                      >
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        Generate Plant Images
-                      </Button>
+                    <div>
+                      <Label>Count</Label>
+                      <Input 
+                        type="number" 
+                        value={plantGeneratorSettings.count} 
+                        onChange={(e) => setPlantGeneratorSettings(prev => ({ ...prev, count: parseInt(e.target.value) || 10 }))}
+                      />
                     </div>
-
-                    {generatedPlantImages.length > 0 && (
-                      <div>
-                        <Label>Generated Plant Images ({generatedPlantImages.length})</Label>
-                        <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mt-2 max-h-48 overflow-y-auto p-2 border rounded-md">
-                          {generatedPlantImages.map((img) => (
-                            <div key={img.id} className="relative group">
-                              {/* FIX: Changed image type to svg+xml for the new placeholders */}
-                              <img
-                                src={`data:image/svg+xml;base64,${img.base64}`}
-                                alt="Generated plant"
-                                className="w-full h-16 object-cover rounded border"
-                              />
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={() => removeGeneratedImage(img.id, 'plant')}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                    <Button onClick={generatePlantImages} disabled={loading}>Generate Plant Images</Button>
                   </CardContent>
                 </Card>
 
+                {/* Non-Plant Generator */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Camera className="h-5 w-5 text-purple-500" />
-                      Dream Weaver AI - Non-Plant Images
-                    </CardTitle>
-                    <CardDescription>
-                      Generate diverse non-plant objects and scenes for training
-                    </CardDescription>
+                    <CardTitle>Non-Plant Image Generator (Dream Weaver AI)</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <Label>Template</Label>
-                        <Select
-                          value={nonPlantGeneratorSettings.template}
-                          onValueChange={(value) => setNonPlantGeneratorSettings(prev => ({ ...prev, template: value }))}
-                        >
+                        <Select value={nonPlantGeneratorSettings.template} onValueChange={(v) => setNonPlantGeneratorSettings(prev => ({ ...prev, template: v }))}>
                           <SelectTrigger>
-                            <SelectValue placeholder="Choose a preset..." />
+                            <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {Object.entries(NON_PLANT_TEMPLATES).map(([key, label]) => (
-                              <SelectItem key={key} value={key}>{label}</SelectItem>
+                            {Object.entries(NON_PLANT_TEMPLATES).map(([key, value]) => (
+                              <SelectItem key={key} value={key}>{value}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
-                      
                       <div>
                         <Label>Style</Label>
-                        <Select
-                          value={nonPlantGeneratorSettings.style}
-                          onValueChange={(value) => setNonPlantGeneratorSettings(prev => ({ ...prev, style: value }))}
-                        >
+                        <Select value={nonPlantGeneratorSettings.style} onValueChange={(v) => setNonPlantGeneratorSettings(prev => ({ ...prev, style: v }))}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {Object.entries(NON_PLANT_STYLES).map(([key, label]) => (
-                              <SelectItem key={key} value={key}>{label}</SelectItem>
+                            {Object.entries(NON_PLANT_STYLES).map(([key, value]) => (
+                              <SelectItem key={key} value={key}>{value}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
-                      
                       <div>
                         <Label>Aspect Ratio</Label>
-                        <Select
-                          value={nonPlantGeneratorSettings.aspectRatio}
-                          onValueChange={(value) => setNonPlantGeneratorSettings(prev => ({ ...prev, aspectRatio: value }))}
-                        >
+                        <Select value={nonPlantGeneratorSettings.aspectRatio} onValueChange={(v) => setNonPlantGeneratorSettings(prev => ({ ...prev, aspectRatio: v }))}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {Object.entries(ASPECT_RATIOS).map(([key, label]) => (
-                              <SelectItem key={key} value={key}>{label}</SelectItem>
+                            {Object.entries(ASPECT_RATIOS).map(([key, value]) => (
+                              <SelectItem key={key} value={key}>{value}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
                     </div>
-
                     <div>
-                      <Label>Custom Prompt</Label>
-                      <Textarea
-                        placeholder="Describe a single, clearly identifiable object or scene for training (e.g., A bright red apple on a wooden table, clearly lit)"
-                        value={nonPlantGeneratorSettings.prompt}
+                      <Label>Prompt</Label>
+                      <Textarea 
+                        value={nonPlantGeneratorSettings.prompt} 
                         onChange={(e) => setNonPlantGeneratorSettings(prev => ({ ...prev, prompt: e.target.value }))}
-                        rows={3}
+                        placeholder="Describe your non-celestial object or scene"
                       />
                     </div>
+                    <div>
+                      <Label>Count</Label>
+                      <Input 
+                        type="number" 
+                        value={nonPlantGeneratorSettings.count} 
+                        onChange={(e) => setNonPlantGeneratorSettings(prev => ({ ...prev, count: parseInt(e.target.value) || 10 }))}
+                      />
+                    </div>
+                    <Button onClick={generateNonPlantImages} disabled={loading}>Generate Non-Plant Images</Button>
+                  </CardContent>
+                </Card>
 
-                    <div className="flex items-center gap-4">
-                      <div>
-                        <Label>Number of Images</Label>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={100}
-                          value={nonPlantGeneratorSettings.count}
-                          onChange={(e) => setNonPlantGeneratorSettings(prev => ({ ...prev, count: parseInt(e.target.value) || 10 }))}
-                          className="w-24"
-                        />
-                      </div>
-                      
-                      <Button
-                        onClick={generateNonPlantImages}
-                        disabled={loading}
-                        className="bg-purple-600 hover:bg-purple-700"
-                      >
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        Generate Non-Plant Images
+                {/* Display generated images */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {generatedPlantImages.map(img => (
+                    <div key={img.id} className="relative">
+                      <img src={`data:image/png;base64,${img.base64}`} alt="Generated Plant" className="w-full h-auto" />
+                      <Button variant="destructive" size="sm" className="absolute top-2 right-2" onClick={() => removeGeneratedImage(img.id, 'plant')}>
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
-
-                    {generatedNonPlantImages.length > 0 && (
-                      <div>
-                        <Label>Generated Non-Plant Images ({generatedNonPlantImages.length})</Label>
-                        <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mt-2 max-h-48 overflow-y-auto p-2 border rounded-md">
-                          {generatedNonPlantImages.map((img) => (
-                            <div key={img.id} className="relative group">
-                               {/* FIX: Changed image type to svg+xml for the new placeholders */}
-                              <img
-                                src={`data:image/svg+xml;base64,${img.base64}`}
-                                alt="Generated non-plant"
-                                className="w-full h-16 object-cover rounded border"
-                              />
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={() => removeGeneratedImage(img.id, 'non_plant')}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Dataset Summary</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                      <div>
-                        <div className="text-2xl font-bold text-primary">{getTotalImages()}</div>
-                        <div className="text-sm text-muted-foreground">Total Images</div>
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold text-green-600">{getPlantCount()}</div>
-                        <div className="text-sm text-muted-foreground">Plant Images</div>
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold text-purple-600">{getNonPlantCount()}</div>
-                        <div className="text-sm text-muted-foreground">Non-Plant Images</div>
-                      </div>
-                      <div>
-                        <div className={`text-2xl font-bold ${canProceedToTraining ? 'text-green-500' : 'text-red-500'}`}>
-                          {canProceedToTraining ? '✓' : '✗'}
-                        </div>
-                        <div className="text-sm text-muted-foreground">Ready to Train</div>
-                      </div>
+                  ))}
+                  {generatedNonPlantImages.map(img => (
+                    <div key={img.id} className="relative">
+                      <img src={`data:image/png;base64,${img.base64}`} alt="Generated Non-Plant" className="w-full h-auto" />
+                      <Button variant="destructive" size="sm" className="absolute top-2 right-2" onClick={() => removeGeneratedImage(img.id, 'non_plant')}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
-
-                    {getTotalImages() > 0 && (
-                      <div className="mt-6">
-                        <Button
-                          onClick={uploadDataset}
-                          disabled={uploading || !canProceedToTraining}
-                          className="w-full"
-                          size="lg"
-                        >
-                          {uploading ? 'Uploading Dataset...' : `Upload Dataset (${getTotalImages()} images)`}
-                        </Button>
-                        
-                        {!canProceedToTraining && (
-                          <p className="text-sm text-muted-foreground mt-2 text-center">
-                            Need at least 150 total images (100 plants, 50 non-plants) to proceed
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <div className="text-center">
-                  <h3 className="text-xl font-semibold mb-2">Manual Dataset Upload</h3>
-                  <p className="text-muted-foreground">
-                    Upload your own images and organize them into plant and non-plant categories
-                  </p>
+                  ))}
                 </div>
+              </div>
+            )}
 
+            {dataMode === 'manual' && (
+              <div className="space-y-8">
+                {/* Manual upload UI */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Leaf className="h-5 w-5 text-green-500" />
-                      Plant Images ({plantImages.length})
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <Label>Select Folder</Label>
-                    <Input
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      webkitdirectory=""
-                      onChange={(e) => e.target.files && handleFileSelection(e.target.files, 'plant')}
-                      className="mb-2"
-                    />
-                    <Label>Select Files</Label>
-                    <Input
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      onChange={(e) => e.target.files && handleFileSelection(e.target.files, 'plant')}
-                    />
-                    
-                    {plantImages.length > 0 && (
-                      <div className="grid grid-cols-3 md:grid-cols-6 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md">
-                        {plantImages.slice(0, 24).map((uploadFile) => (
-                          <div key={uploadFile.id} className="relative group">
-                            <img
-                              src={uploadFile.preview}
-                              alt="Plant"
-                              className="w-full h-16 object-cover rounded border"
-                            />
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => removeFile(uploadFile.id, 'plant')}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ))}
-                        {plantImages.length > 24 && (
-                          <div className="flex items-center justify-center text-sm text-muted-foreground">
-                            +{plantImages.length - 24} more
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Camera className="h-5 w-5 text-purple-500" />
-                      Non-Plant Images ({nonPlantImages.length})
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <Label>Select Folder</Label>
-                    <Input
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      webkitdirectory=""
-                      onChange={(e) => e.target.files && handleFileSelection(e.target.files, 'non_plant')}
-                      className="mb-2"
-                    />
-                    <Label>Select Files</Label>
-                    <Input
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      onChange={(e) => e.target.files && handleFileSelection(e.target.files, 'non_plant')}
-                    />
-                    
-                    {nonPlantImages.length > 0 && (
-                      <div className="grid grid-cols-3 md:grid-cols-6 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md">
-                        {nonPlantImages.slice(0, 24).map((uploadFile) => (
-                          <div key={uploadFile.id} className="relative group">
-                            <img
-                              src={uploadFile.preview}
-                              alt="Non-plant"
-                              className="w-full h-16 object-cover rounded border"
-                            />
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => removeFile(uploadFile.id, 'non_plant')}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ))}
-                        {nonPlantImages.length > 24 && (
-                          <div className="flex items-center justify-center text-sm text-muted-foreground">
-                            +{nonPlantImages.length - 24} more
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Dataset Summary</CardTitle>
+                    <CardTitle>Upload Plant Images</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                      <div>
-                        <div className="text-2xl font-bold text-primary">{getTotalImages()}</div>
-                        <div className="text-sm text-muted-foreground">Total Images</div>
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold text-green-600">{getPlantCount()}</div>
-                        <div className="text-sm text-muted-foreground">Plant Images</div>
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold text-purple-600">{getNonPlantCount()}</div>
-                        <div className="text-sm text-muted-foreground">Non-Plant Images</div>
-                      </div>
-                       <div>
-                        <div className={`text-2xl font-bold ${canProceedToTraining ? 'text-green-500' : 'text-red-500'}`}>
-                          {canProceedToTraining ? '✓' : '✗'}
+                    <Input type="file" multiple accept="image/*" onChange={(e) => e.target.files && handleFileSelection(e.target.files, 'plant')} />
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                      {plantImages.map(file => (
+                        <div key={file.id} className="relative">
+                          <img src={file.preview} alt="Uploaded Plant" className="w-full h-auto" />
+                          <Button variant="destructive" size="sm" className="absolute top-2 right-2" onClick={() => removeFile(file.id, 'plant')}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
-                        <div className="text-sm text-muted-foreground">Ready to Train</div>
-                      </div>
+                      ))}
                     </div>
+                  </CardContent>
+                </Card>
 
-                    {getTotalImages() > 0 && (
-                      <div className="mt-6">
-                        <Button
-                          onClick={uploadDataset}
-                          disabled={uploading || !canProceedToTraining}
-                          className="w-full"
-                          size="lg"
-                        >
-                          {uploading ? 'Uploading Dataset...' : `Upload Dataset (${getTotalImages()} images)`}
-                        </Button>
-                        
-                        {!canProceedToTraining && (
-                          <p className="text-sm text-muted-foreground mt-2 text-center">
-                            Need at least 150 total images (100 plants, 50 non-plants) to proceed
-                          </p>
-                        )}
-                      </div>
-                    )}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Upload Non-Plant Images</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Input type="file" multiple accept="image/*" onChange={(e) => e.target.files && handleFileSelection(e.target.files, 'non_plant')} />
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                      {nonPlantImages.map(file => (
+                        <div key={file.id} className="relative">
+                          <img src={file.preview} alt="Uploaded Non-Plant" className="w-full h-auto" />
+                          <Button variant="destructive" size="sm" className="absolute top-2 right-2" onClick={() => removeFile(file.id, 'non_plant')}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   </CardContent>
                 </Card>
               </div>
             )}
 
-            {(loading || uploading) && (
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">{currentPhase}</span>
-                      <span className="font-medium">{progress.toFixed(0)}%</span>
-                    </div>
-                    <Progress value={progress} className="w-full" />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            <Button onClick={uploadDataset} disabled={uploading || !canProceedToTraining} className="w-full">
+              {uploading ? 'Uploading...' : 'Upload Dataset and Proceed to Training'}
+            </Button>
 
-            {datasetStats && (
-              <div className="text-center pt-6">
-                <Button
-                  onClick={() => setCurrentTab('training')}
-                  className="px-8"
-                  size="lg"
-                >
-                  Proceed to Model Training
-                </Button>
-              </div>
+            {loading && (
+              <Progress value={progress} />
             )}
           </TabsContent>
-          
-          <TabsContent value="training" className="space-y-6">
+
+          <TabsContent value="training">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Brain className="h-5 w-5" />
-                  Model Training Configuration
-                </CardTitle>
-                <CardDescription>
-                  Configure and train your plant detection model
-                </CardDescription>
+                <CardTitle>Model Training Configuration</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label>Model Architecture</Label>
+                    <Label>Architecture</Label>
                     <Select value={modelArchitecture} onValueChange={setModelArchitecture}>
                       <SelectTrigger>
                         <SelectValue />
@@ -1385,7 +1208,7 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
               </CardContent>
             </Card>
           </TabsContent>
-          
+
           <TabsContent value="testing" className="space-y-6">
             <Card>
               <CardHeader>
