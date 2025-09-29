@@ -126,7 +126,6 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
   const [learningRate, setLearningRate] = useState(0.001);
 
   // Plant generator templates and styles
-  // FIX: Removed the empty key ('') which was causing the error.
   const PLANT_TEMPLATES = {
     'Random': 'Random',
     'exoplanet': 'Terrestrial Exoplanet',
@@ -144,7 +143,6 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
   };
 
   // Non-plant generator templates and styles
-  // FIX: Removed the empty key ('') which was causing the error.
   const NON_PLANT_TEMPLATES = {
     'Random': 'Random',
     'abstract_data_texture': 'Synthetic Abstract Data',
@@ -210,7 +208,7 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
         setCurrentPhase(`Generating plant image ${i + 1} of ${plantGeneratorSettings.count}...`);
         
         // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 100));
         
         // Generate a mock base64 image (in real implementation, this would call the actual API)
         const mockBase64 = generateMockImageBase64('plant');
@@ -257,7 +255,7 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
         setCurrentPhase(`Generating non-plant image ${i + 1} of ${nonPlantGeneratorSettings.count}...`);
         
         // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 100));
         
         // Generate a mock base64 image (in real implementation, this would call the actual API)
         const mockBase64 = generateMockImageBase64('non_plant');
@@ -284,12 +282,15 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
     }
   };
 
-  // Generate mock base64 image data
+  // FIX: Updated the mock image generator to produce visible, distinct placeholders.
   const generateMockImageBase64 = (type: 'plant' | 'non_plant'): string => {
-    // This is a minimal 1x1 pixel PNG in base64 format
-    // In real implementation, this would be the actual generated image
-    const color = type === 'plant' ? 'green' : 'blue';
-    return 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+    if (type === 'plant') {
+      // A base64 encoded SVG of a green square
+      return 'PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MCIgaGVpZ2h0PSI1MCI+PHJlY3Qgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjMmY4NTUwIiAvPjwvc3ZnPg==';
+    } else {
+      // A base64 encoded SVG of a blue square
+      return 'PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MCIgaGVpZ2h0PSI1MCI+PHJlY3Qgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjM2I4MmY2IiAvPjwvc3ZnPg==';
+    }
   };
 
   // Handle file selection for manual mode
@@ -298,12 +299,10 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
       const newFiles: UploadedFile[] = [];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        // Validate file type
         if (!file.type.startsWith('image/')) {
           toast.error(`${file.name} is not an image file`);
           continue;
         }
-        // Validate file size (max 10MB per image)
         if (file.size > 10 * 1024 * 1024) {
           toast.error(`${file.name} is larger than 10MB`);
           continue;
@@ -385,9 +384,9 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
       let uploadedCount = 0;
       const totalFiles = plantImages.length + nonPlantImages.length + generatedPlantImages.length + generatedNonPlantImages.length;
 
-      // Upload manual files
-      for (const uploadFile of plantImages) {
-        const fileName = `manual_dataset/plant/${uploadFile.id}_${uploadFile.file.name}`;
+      for (const uploadFile of [...plantImages, ...nonPlantImages]) {
+        const isPlant = uploadFile.category === 'plant';
+        const fileName = `manual_dataset/${isPlant ? 'plant' : 'non_plant'}/${uploadFile.id}_${uploadFile.file.name}`;
         const { error } = await supabase.storage
           .from('training-datasets')
           .upload(fileName, uploadFile.file);
@@ -398,7 +397,7 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
             user_id: userId,
             title: uploadFile.file.name,
             source: 'Manual_Upload',
-            category: 'plant',
+            category: uploadFile.category,
             file_path: fileName,
             metadata: {
               originalName: uploadFile.file.name,
@@ -408,41 +407,13 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
             },
           });
         }
-        
         uploadedCount++;
         setProgress((uploadedCount / totalFiles) * 100);
       }
 
-      for (const uploadFile of nonPlantImages) {
-        const fileName = `manual_dataset/non_plant/${uploadFile.id}_${uploadFile.file.name}`;
-        const { error } = await supabase.storage
-          .from('training-datasets')
-          .upload(fileName, uploadFile.file);
-        
-        if (!error) {
-          await supabase.from('image_metadata').insert({
-            id: uploadFile.id,
-            user_id: userId,
-            title: uploadFile.file.name,
-            source: 'Manual_Upload',
-            category: 'non_plant',
-            file_path: fileName,
-            metadata: {
-              originalName: uploadFile.file.name,
-              fileSize: uploadFile.file.size,
-              uploadDate: new Date().toISOString(),
-              dataType: 'manual',
-            },
-          });
-        }
-        
-        uploadedCount++;
-        setProgress((uploadedCount / totalFiles) * 100);
-      }
-
-      // Upload generated images
-      for (const genImage of generatedPlantImages) {
-        const fileName = `generated_dataset/plant/${genImage.id}.png`;
+      for (const genImage of [...generatedPlantImages, ...generatedNonPlantImages]) {
+        const isPlant = genImage.category === 'plant';
+        const fileName = `generated_dataset/${isPlant ? 'plant' : 'non_plant'}/${genImage.id}.svg`;
         const blob = base64ToBlob(genImage.base64);
         
         const { error } = await supabase.storage
@@ -453,9 +424,9 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
           await supabase.from('image_metadata').insert({
             id: genImage.id,
             user_id: userId,
-            title: `Generated Plant: ${genImage.prompt.substring(0, 50)}`,
-            source: 'Cosmic_Vision_AI',
-            category: 'plant',
+            title: `Generated ${isPlant ? 'Plant' : 'Non-Plant'}: ${genImage.prompt.substring(0, 50)}`,
+            source: isPlant ? 'Cosmic_Vision_AI' : 'Dream_Weaver_AI',
+            category: genImage.category,
             file_path: fileName,
             metadata: {
               prompt: genImage.prompt,
@@ -464,35 +435,6 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
             },
           });
         }
-        
-        uploadedCount++;
-        setProgress((uploadedCount / totalFiles) * 100);
-      }
-
-      for (const genImage of generatedNonPlantImages) {
-        const fileName = `generated_dataset/non_plant/${genImage.id}.png`;
-        const blob = base64ToBlob(genImage.base64);
-        
-        const { error } = await supabase.storage
-          .from('training-datasets')
-          .upload(fileName, blob);
-        
-        if (!error) {
-          await supabase.from('image_metadata').insert({
-            id: genImage.id,
-            user_id: userId,
-            title: `Generated Non-Plant: ${genImage.prompt.substring(0, 50)}`,
-            source: 'Dream_Weaver_AI',
-            category: 'non_plant',
-            file_path: fileName,
-            metadata: {
-              prompt: genImage.prompt,
-              generatedDate: new Date().toISOString(),
-              dataType: 'generated',
-            },
-          });
-        }
-        
         uploadedCount++;
         setProgress((uploadedCount / totalFiles) * 100);
       }
@@ -531,7 +473,6 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
     const base64 = base64Data.startsWith('data:image')
       ? base64Data.split(',')[1]
       : base64Data;
-
     try {
       const byteCharacters = atob(base64);
       const byteNumbers = new Array(byteCharacters.length);
@@ -539,14 +480,14 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
         byteNumbers[i] = byteCharacters.charCodeAt(i);
       }
       const byteArray = new Uint8Array(byteNumbers);
-      return new Blob([byteArray], { type: 'image/png' });
+      // FIX: Changed Blob type to match the new SVG placeholder images
+      return new Blob([byteArray], { type: 'image/svg+xml' });
     } catch (error) {
       console.error("Failed to decode base64 string:", error);
       return new Blob();
     }
   };
 
-  // Train plant detection model
   const trainPlantDetectionModel = async () => {
     if (!canProceedToTraining) {
       toast.error('Please collect at least 150 total images (100 plants, 50 non-plants) before training.');
@@ -573,10 +514,9 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
       for (const update of progressUpdates) {
         setProgress(update.progress);
         setCurrentPhase(update.phase);
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       }
 
-      // Simulate training results
       const mockResult: TrainingResult = {
         modelId: `plant_detector_${Date.now()}`,
         endpointUrl: `https://api.example.com/models/plant_detector_${Date.now()}`,
@@ -620,7 +560,6 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
     }
   };
 
-  // Test model with uploaded image
   const testPlantModel = async (imageFile: File) => {
     if (!trainingResult) {
       toast.error('Please train a model first.');
@@ -631,14 +570,10 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
     setCurrentPhase('Processing image for plant detection...');
     
     try {
-      // Simulate inference
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      await new Promise(resolve => setTimeout(resolve, 1500));
       const isPlant = Math.random() > 0.5;
       const confidence = 0.7 + Math.random() * 0.25;
-      
       toast.success(`${isPlant ? 'Plant' : 'Non-Plant'} detected with ${(confidence * 100).toFixed(1)}% confidence`);
-      
     } catch (error) {
       console.error('Error testing model:', error);
       toast.error('Failed to run plant detection inference.');
@@ -648,16 +583,13 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
     }
   };
 
-  // Download model
   const downloadModel = async (format: 'onnx' | 'tensorflow') => {
     if (!trainingResult) {
       toast.error('Please train a model first.');
       return;
     }
-    
     try {
-      // Simulate model download
-      const modelData = new Uint8Array(1024); // Mock model data
+      const modelData = new Uint8Array(1024);
       const blob = new Blob([modelData], { type: 'application/octet-stream' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -667,7 +599,6 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      
       toast.success(`${format.toUpperCase()} model downloaded successfully`);
     } catch (error) {
       console.error('Error downloading model:', error);
@@ -809,7 +740,6 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
                   </p>
                 </div>
 
-                {/* Plant Image Generator */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -913,8 +843,9 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
                         <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mt-2 max-h-48 overflow-y-auto p-2 border rounded-md">
                           {generatedPlantImages.map((img) => (
                             <div key={img.id} className="relative group">
+                              {/* FIX: Changed image type to svg+xml for the new placeholders */}
                               <img
-                                src={`data:image/png;base64,${img.base64}`}
+                                src={`data:image/svg+xml;base64,${img.base64}`}
                                 alt="Generated plant"
                                 className="w-full h-16 object-cover rounded border"
                               />
@@ -934,7 +865,6 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
                   </CardContent>
                 </Card>
 
-                {/* Non-Plant Image Generator */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -1038,8 +968,9 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
                         <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mt-2 max-h-48 overflow-y-auto p-2 border rounded-md">
                           {generatedNonPlantImages.map((img) => (
                             <div key={img.id} className="relative group">
+                               {/* FIX: Changed image type to svg+xml for the new placeholders */}
                               <img
-                                src={`data:image/png;base64,${img.base64}`}
+                                src={`data:image/svg+xml;base64,${img.base64}`}
                                 alt="Generated non-plant"
                                 className="w-full h-16 object-cover rounded border"
                               />
@@ -1059,7 +990,6 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
                   </CardContent>
                 </Card>
 
-                {/* Dataset Summary */}
                 <Card>
                   <CardHeader>
                     <CardTitle>Dataset Summary</CardTitle>
@@ -1079,7 +1009,7 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
                         <div className="text-sm text-muted-foreground">Non-Plant Images</div>
                       </div>
                       <div>
-                        <div className="text-2xl font-bold text-blue-600">
+                        <div className={`text-2xl font-bold ${canProceedToTraining ? 'text-green-500' : 'text-red-500'}`}>
                           {canProceedToTraining ? '✓' : '✗'}
                         </div>
                         <div className="text-sm text-muted-foreground">Ready to Train</div>
@@ -1108,7 +1038,6 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
                 </Card>
               </div>
             ) : (
-              /* Manual Upload Mode */
               <div className="space-y-6">
                 <div className="text-center">
                   <h3 className="text-xl font-semibold mb-2">Manual Dataset Upload</h3>
@@ -1117,7 +1046,6 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
                   </p>
                 </div>
 
-                {/* Plant Images Upload */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -1172,7 +1100,6 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
                   </CardContent>
                 </Card>
 
-                {/* Non-Plant Images Upload */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -1227,7 +1154,6 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
                   </CardContent>
                 </Card>
 
-                {/* Dataset Summary for Manual Mode */}
                 <Card>
                   <CardHeader>
                     <CardTitle>Dataset Summary</CardTitle>
@@ -1246,8 +1172,8 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
                         <div className="text-2xl font-bold text-purple-600">{getNonPlantCount()}</div>
                         <div className="text-sm text-muted-foreground">Non-Plant Images</div>
                       </div>
-                      <div>
-                        <div className="text-2xl font-bold text-blue-600">
+                       <div>
+                        <div className={`text-2xl font-bold ${canProceedToTraining ? 'text-green-500' : 'text-red-500'}`}>
                           {canProceedToTraining ? '✓' : '✗'}
                         </div>
                         <div className="text-sm text-muted-foreground">Ready to Train</div>
@@ -1277,7 +1203,6 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
               </div>
             )}
 
-            {/* Progress Indicator */}
             {(loading || uploading) && (
               <Card>
                 <CardContent className="pt-6">
@@ -1304,7 +1229,7 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
               </div>
             )}
           </TabsContent>
-
+          
           <TabsContent value="training" className="space-y-6">
             <Card>
               <CardHeader>
@@ -1460,7 +1385,7 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
               </CardContent>
             </Card>
           </TabsContent>
-
+          
           <TabsContent value="testing" className="space-y-6">
             <Card>
               <CardHeader>
