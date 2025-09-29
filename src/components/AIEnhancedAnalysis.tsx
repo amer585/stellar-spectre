@@ -425,7 +425,8 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
             user_id: userId,
             title: uploadFile.file.name,
             source: 'Manual_Upload',
-            category: 'other',
+            // FIX #2: Changed 'other' to 'non_plant' for consistency
+            category: 'non_plant',
             file_path: fileName,
             metadata: {
               originalName: uploadFile.file.name,
@@ -483,7 +484,8 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
             user_id: userId,
             title: `Generated Non-Plant: ${genImage.prompt.substring(0, 50)}`,
             source: 'Dream_Weaver_AI',
-            category: 'other',
+            // FIX #2: Changed 'other' to 'non_plant' for consistency
+            category: 'non_plant',
             file_path: fileName,
             metadata: {
               prompt: genImage.prompt,
@@ -528,14 +530,26 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
   };
 
   // Convert base64 to blob
-  const base64ToBlob = (base64: string): Blob => {
-    const byteCharacters = atob(base64);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
+  // FIX #1: Made this function more robust by handling optional data URL prefixes.
+  const base64ToBlob = (base64Data: string): Blob => {
+    // Strip the data URL prefix if it exists, e.g., "data:image/png;base64,"
+    const base64 = base64Data.startsWith('data:image')
+      ? base64Data.split(',')[1]
+      : base64Data;
+
+    try {
+      const byteCharacters = atob(base64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      return new Blob([byteArray], { type: 'image/png' });
+    } catch (error) {
+      console.error("Failed to decode base64 string:", error);
+      // Return an empty blob or handle the error as appropriate
+      return new Blob();
     }
-    const byteArray = new Uint8Array(byteNumbers);
-    return new Blob([byteArray], { type: 'image/png' });
   };
 
   // Train plant detection model
@@ -713,7 +727,7 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
           </TabsList>
 
           <TabsContent value="mode-selection" className="space-y-6">
-            <div className="text-center space-y-4">
+            <div className="text-center space-y-4 pt-4">
               <h3 className="text-xl font-semibold">Choose Data Collection Mode</h3>
               <p className="text-muted-foreground">
                 Select how you want to gather training data for your plant detection model
@@ -779,7 +793,7 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
             </div>
 
             {dataMode && (
-              <div className="text-center">
+              <div className="text-center pt-6">
                 <Button
                   onClick={() => setCurrentTab('dataset')}
                   className="px-8"
@@ -902,7 +916,7 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
                     {generatedPlantImages.length > 0 && (
                       <div>
                         <Label>Generated Plant Images ({generatedPlantImages.length})</Label>
-                        <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mt-2 max-h-48 overflow-y-auto">
+                        <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mt-2 max-h-48 overflow-y-auto p-2 border rounded-md">
                           {generatedPlantImages.map((img) => (
                             <div key={img.id} className="relative group">
                               <img
@@ -1027,7 +1041,7 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
                     {generatedNonPlantImages.length > 0 && (
                       <div>
                         <Label>Generated Non-Plant Images ({generatedNonPlantImages.length})</Label>
-                        <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mt-2 max-h-48 overflow-y-auto">
+                        <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mt-2 max-h-48 overflow-y-auto p-2 border rounded-md">
                           {generatedNonPlantImages.map((img) => (
                             <div key={img.id} className="relative group">
                               <img
@@ -1118,6 +1132,7 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    <Label>Select Folder</Label>
                     <Input
                       type="file"
                       multiple
@@ -1126,6 +1141,7 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
                       onChange={(e) => e.target.files && handleFileSelection(e.target.files, 'plant')}
                       className="mb-2"
                     />
+                    <Label>Select Files</Label>
                     <Input
                       type="file"
                       multiple
@@ -1134,7 +1150,7 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
                     />
                     
                     {plantImages.length > 0 && (
-                      <div className="grid grid-cols-3 md:grid-cols-6 gap-2 max-h-48 overflow-y-auto">
+                      <div className="grid grid-cols-3 md:grid-cols-6 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md">
                         {plantImages.slice(0, 24).map((uploadFile) => (
                           <div key={uploadFile.id} className="relative group">
                             <img
@@ -1171,6 +1187,7 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    <Label>Select Folder</Label>
                     <Input
                       type="file"
                       multiple
@@ -1179,6 +1196,7 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
                       onChange={(e) => e.target.files && handleFileSelection(e.target.files, 'non_plant')}
                       className="mb-2"
                     />
+                    <Label>Select Files</Label>
                     <Input
                       type="file"
                       multiple
@@ -1187,7 +1205,7 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
                     />
                     
                     {nonPlantImages.length > 0 && (
-                      <div className="grid grid-cols-3 md:grid-cols-6 gap-2 max-h-48 overflow-y-auto">
+                      <div className="grid grid-cols-3 md:grid-cols-6 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md">
                         {nonPlantImages.slice(0, 24).map((uploadFile) => (
                           <div key={uploadFile.id} className="relative group">
                             <img
@@ -1281,7 +1299,7 @@ const AIEnhancedAnalysis: React.FC<AIEnhancedAnalysisProps> = ({ userId }) => {
             )}
 
             {datasetStats && (
-              <div className="text-center">
+              <div className="text-center pt-6">
                 <Button
                   onClick={() => setCurrentTab('training')}
                   className="px-8"
