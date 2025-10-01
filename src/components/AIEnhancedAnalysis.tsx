@@ -148,14 +148,14 @@ const AIEnhancedAnalysis: React.FC = () => {
           category="plant"
           files={plantFiles}
           setFiles={setPlantFiles}
-          exampleLink="https://g.co/gemini/share/ec14725f3491"
+          exampleLink="https://g.co/gemini/share/28a947d1c9b4"
         />
         <UploadZone
           label="Non-Plant Images"
           category="non_plant"
           files={nonPlantFiles}
           setFiles={setNonPlantFiles}
-          exampleLink="https://g.co/gemini/share/c6eda0c0289e"
+          exampleLink="https://g.co/gemini/share/f8aad9452f8c"
         />
       </div>
 
