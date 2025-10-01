@@ -3,6 +3,7 @@ import Dropzone from "react-dropzone";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { ExternalLink } from "lucide-react";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -17,11 +18,13 @@ const UploadZone = ({
   category,
   files,
   setFiles,
+  exampleLink,
 }: {
   label: string;
   category: 'plant' | 'non_plant';
   files: File[];
   setFiles: React.Dispatch<React.SetStateAction<File[]>>;
+  exampleLink?: string;
 }) => {
   const handleDrop = async (acceptedFiles: File[]) => {
     setFiles((prev) => [...prev, ...acceptedFiles]);
@@ -46,24 +49,37 @@ const UploadZone = ({
   };
 
   return (
-    <Dropzone onDrop={handleDrop} multiple accept={{'image/*': [], 'application/zip': []}}>
-      {({ getRootProps, getInputProps }) => (
-        <div
-          {...getRootProps()}
-          className="border-2 border-dashed p-6 rounded-lg text-center cursor-pointer hover:bg-accent/50 transition"
+    <div className="space-y-2">
+      {exampleLink && (
+        <a
+          href={exampleLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline transition-colors"
         >
-          <input {...getInputProps()} />
-          <p className="font-medium">
-            Drop {label} images or ZIPs here, or click to select
-          </p>
-          <ul className="mt-2 text-sm text-muted-foreground max-h-24 overflow-y-auto">
-            {files.map((f, i) => (
-              <li key={i}>{f.name}</li>
-            ))}
-          </ul>
-        </div>
+          <ExternalLink className="h-4 w-4" />
+          View {label} Examples
+        </a>
       )}
-    </Dropzone>
+      <Dropzone onDrop={handleDrop} multiple accept={{'image/*': [], 'application/zip': []}}>
+        {({ getRootProps, getInputProps }) => (
+          <div
+            {...getRootProps()}
+            className="border-2 border-dashed p-6 rounded-lg text-center cursor-pointer hover:bg-accent/50 transition"
+          >
+            <input {...getInputProps()} />
+            <p className="font-medium">
+              Drop {label} images or ZIPs here, or click to select
+            </p>
+            <ul className="mt-2 text-sm text-muted-foreground max-h-24 overflow-y-auto">
+              {files.map((f, i) => (
+                <li key={i}>{f.name}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </Dropzone>
+    </div>
   );
 };
 
@@ -132,12 +148,14 @@ const AIEnhancedAnalysis: React.FC = () => {
           category="plant"
           files={plantFiles}
           setFiles={setPlantFiles}
+          exampleLink="https://g.co/gemini/share/ec14725f3491"
         />
         <UploadZone
           label="Non-Plant Images"
           category="non_plant"
           files={nonPlantFiles}
           setFiles={setNonPlantFiles}
+          exampleLink="https://g.co/gemini/share/c6eda0c0289e"
         />
       </div>
 
