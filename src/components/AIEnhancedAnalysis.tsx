@@ -49,16 +49,16 @@ const UploadZone = ({
   };
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {exampleLink && (
         <a
           href={exampleLink}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
         >
-          <ExternalLink className="h-4 w-4" />
-          View {label} Examples
+          <Leaf className="h-4 w-4" />
+          {category === 'plant' ? 'Plant Images Generator' : 'Non-Plant Images Generator'}
         </a>
       )}
       <Dropzone onDrop={handleDrop} multiple accept={{'image/*': [], 'application/zip': []}}>
