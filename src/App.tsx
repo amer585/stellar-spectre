@@ -12,6 +12,9 @@ import NotFound from "./pages/NotFound";
 import PlantDetection from "./pages/PlantDetection";
 import type { User, Session } from '@supabase/supabase-js';
 
+// ✅ Import the TrainPanel component
+import TrainPanel from "./components/TrainPanel";
+
 const queryClient = new QueryClient();
 
 const AppContent = () => {
@@ -52,6 +55,8 @@ const AppContent = () => {
       <Route path="/auth" element={<Auth />} />
       <Route path="/" element={<Index user={user} session={session} />} />
       <Route path="/plant-detection" element={<PlantDetection />} />
+      {/* ✅ New route for training panel */}
+      <Route path="/train" element={<TrainPanel />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
