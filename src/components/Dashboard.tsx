@@ -118,7 +118,7 @@ const Dashboard = ({ user, session }: DashboardProps) => {
           </TabsContent>
 
           <TabsContent value="ai-enhanced" className="space-y-6">
-            <AIEnhancedAnalysis userId={user.id} />
+            <AIEnhancedAnalysis />
           </TabsContent>
 
           <TabsContent value="results" className="space-y-6">

@@ -99,7 +99,7 @@ const PlantDetection = () => {
 
       {/* Main Content */}
       <main className="relative z-10 container mx-auto px-4 py-8">
-        <PlantDetectionSystem userId={user.id} />
+        <PlantDetectionSystem />
       </main>
     </div>
   );
