@@ -55,10 +55,8 @@ import { useToast } from '@/hooks/use-toast';
  * If you want to move the anon key to env variables, replace the key below with process.env...
  */
 
-// --- Supabase config (replace if you prefer env)
-const SUPABASE_URL = 'https://yjpuugbijzkrzahfamqn.supabase.co';
-const SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlqcHV1Z2JpanprcnphaGZhbXFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2NTE1NDcsImV4cCI6MjA3NDIyNzU0N30.fJk8XEE35KCKkkPbuoYBzMegcluXYC2FjeCHUiKYzt4';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -287,40 +285,107 @@ const PlantDetectionSystem: React.FC = () => {
   }
 
   const uploadAndInfer = useCallback(async (file: File) => {
-    setLoading(true); setCurrentPhase('Starting inference...'); setProgress(0);
+    setLoading(true);
+    setCurrentPhase('Starting inference...');
+    setProgress(0);
+
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        toast({
+          title: 'Authentication required',
+          description: 'Please sign in to use plant detection',
+          variant: 'destructive'
+        });
+        return;
+      }
+
       if (useStorageUpload) {
         setCurrentPhase('Uploading to storage...');
-        const path = `${Date.now()}_${file.name}`;
-        const { error: uploadError } = await supabase.storage.from('plant-datasets').upload(path, file, { upsert: false });
-        if (uploadError) throw uploadError;
+        const path = `inference/${user.id}/${Date.now()}_${file.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from('plant-datasets')
+          .upload(path, file, { upsert: false });
+
+        if (uploadError) {
+          console.error('Upload error:', uploadError);
+          throw new Error(`Upload failed: ${uploadError.message}`);
+        }
+
         setProgress(30);
-        // get public URL
+
         const { data } = supabase.storage.from('plant-datasets').getPublicUrl(path);
         const imageUrl = data.publicUrl;
+
         setCurrentPhase('Calling server inference (via URL)...');
         const result = await callEdgeFunctionWithUrl(imageUrl);
         setProgress(90);
+
         if (!result || result.error) {
-          throw new Error(result?.error || 'No result');
+          throw new Error(result?.error || 'No result from server');
         }
+
+        await supabase.from('plant_analyses').insert({
+          user_id: user.id,
+          image_url: imageUrl,
+          analysis_results: result,
+          model_used: 'edge-function',
+          confidence_score: result.confidence,
+          processing_time_ms: result.processingTime || 0
+        });
+
         setLastInferenceResult({ ...result, analyzedUrl: imageUrl });
-        toast({ title: 'Inference result', description: `Type: ${result.type ?? (result.plantDetected ? 'Plant' : 'Not plant')}` });
+        toast({
+          title: 'Inference complete',
+          description: `Type: ${result.type ?? (result.plantDetected ? 'Plant' : 'Not plant')}`
+        });
       } else {
         setCurrentPhase('Sending file to server...');
         const result = await callEdgeFunctionWithFile(file);
         setProgress(90);
-        if (!result || result.error) throw new Error(result?.error || 'No result');
+
+        if (!result || result.error) {
+          throw new Error(result?.error || 'No result from server');
+        }
+
+        await supabase.from('plant_analyses').insert({
+          user_id: user.id,
+          analysis_results: result,
+          model_used: 'edge-function-direct',
+          confidence_score: result.confidence,
+          processing_time_ms: result.processingTime || 0
+        });
+
         setLastInferenceResult({ ...result, analyzedUrl: null });
-        toast({ title: 'Inference result', description: `Type: ${result.type ?? (result.plantDetected ? 'Plant' : 'Not plant')}` });
+        toast({
+          title: 'Inference complete',
+          description: `Type: ${result.type ?? (result.plantDetected ? 'Plant' : 'Not plant')}`
+        });
       }
     } catch (err: any) {
       console.warn('Edge inference failed, running local heuristic fallback:', err);
-      toast({ title: 'Server inference failed', description: 'Falling back to local heuristic.', variant: 'warning' });
-      // fallback to local heuristic
+      toast({
+        title: 'Server inference failed',
+        description: 'Falling back to local heuristic analysis',
+        variant: 'default'
+      });
+
       try {
         setCurrentPhase('Running local heuristic...');
         const h = await analyzeImageForPlant(file);
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('plant_analyses').insert({
+            user_id: user.id,
+            analysis_results: h,
+            model_used: 'local-heuristic',
+            confidence_score: h.confidence / 100,
+            processing_time_ms: 0
+          });
+        }
+
         setLastInferenceResult({
           type: h.plantDetected ? 'Plant' : 'Not a plant',
           label: h.species ?? null,
@@ -329,12 +394,22 @@ const PlantDetectionSystem: React.FC = () => {
           analyzedUrl: null,
           ...h
         });
-        toast({ title: h.plantDetected ? 'Local: Plant detected' : 'Local: No plant', description: `Confidence ${h.confidence}%` });
+
+        toast({
+          title: h.plantDetected ? 'Plant detected (local)' : 'No plant detected (local)',
+          description: `Confidence ${h.confidence}%`
+        });
       } catch (he: any) {
-        toast({ title: 'Local heuristic failed', description: String(he), variant: 'destructive' });
+        toast({
+          title: 'Analysis failed',
+          description: String(he),
+          variant: 'destructive'
+        });
       }
     } finally {
-      setLoading(false); setCurrentPhase(''); setProgress(0);
+      setLoading(false);
+      setCurrentPhase('');
+      setProgress(0);
     }
   }, [useStorageUpload, toast]);
 
