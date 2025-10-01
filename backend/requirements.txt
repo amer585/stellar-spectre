@@ -1,1 +1,12 @@
+fastapi
+uvicorn[standard]
+torch
+torchvision
+pillow
+python-multipart
+pydantic
+numpy
+onnx
+boto3
+python-dotenv
 
