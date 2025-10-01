@@ -504,23 +504,49 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { action, userId, config, modelId, target, imageData } = await req.json();
-    
-    if (!userId) {
+    // Extract and validate JWT token
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
       return new Response(
-        JSON.stringify({ error: 'User ID is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Missing authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const token = authHeader.replace('Bearer ', '');
     
-    const supabase = createClient(
+    // Create Supabase client with service role for admin operations
+    const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    // Verify JWT and get user
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or expired token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { action, userId, config, modelId, target, imageData } = await req.json();
+    
+    // Validate that the userId in the request matches the authenticated user
+    if (userId && userId !== user.id) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: User ID mismatch' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Use the authenticated user's ID for all operations
+    const authenticatedUserId = user.id;
     
     switch (action) {
       case 'collect-dataset': {
-        const stats = await collectPlantDataset(userId, config?.targetCount || 50000);
+        const stats = await collectPlantDataset(authenticatedUserId, config?.targetCount || 50000);
         
         return new Response(
           JSON.stringify({
@@ -533,7 +559,7 @@ Deno.serve(async (req) => {
       }
       
       case 'train-model': {
-        const { modelId, metrics } = await trainYOLOv8Model(supabase, userId, config);
+        const { modelId, metrics } = await trainYOLOv8Model(supabaseAdmin, authenticatedUserId, config);
         
         return new Response(
           JSON.stringify({
@@ -547,7 +573,7 @@ Deno.serve(async (req) => {
       }
       
       case 'deploy-model': {
-        const endpointUrl = await deployPlantModel(supabase, userId, modelId, target);
+        const endpointUrl = await deployPlantModel(supabaseAdmin, authenticatedUserId, modelId, target);
         
         return new Response(
           JSON.stringify({

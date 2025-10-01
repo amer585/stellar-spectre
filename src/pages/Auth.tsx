@@ -10,6 +10,12 @@ import { toast } from "sonner";
 import { Telescope, Stars, Orbit } from "lucide-react";
 import { PasswordReset } from "@/components/PasswordReset";
 import type { User, Session } from '@supabase/supabase-js';
+import { z } from "zod";
+
+const authSchema = z.object({
+  email: z.string().trim().email({ message: "Invalid email address" }).max(255),
+  password: z.string().min(8, { message: "Password must be at least 8 characters" }).max(100)
+});
 
 const Auth = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -51,10 +57,18 @@ const Auth = () => {
     setLoading(true);
 
     try {
+      // Validate input
+      const validation = authSchema.safeParse({ email, password });
+      if (!validation.success) {
+        toast.error(validation.error.issues[0].message);
+        setLoading(false);
+        return;
+      }
+
       const redirectUrl = `${window.location.origin}/`;
       const { error } = await supabase.auth.signUp({
-        email,
-        password,
+        email: validation.data.email,
+        password: validation.data.password,
         options: {
           emailRedirectTo: redirectUrl
         }
@@ -64,7 +78,7 @@ const Auth = () => {
         if (error.message.includes("already registered")) {
           toast.error("Account already exists. Please sign in instead.");
         } else {
-          toast.error(error.message);
+          toast.error("Unable to create account. Please try again.");
         }
       } else {
         toast.success("Registration successful! Please check your email for verification.");
@@ -81,16 +95,24 @@ const Auth = () => {
     setLoading(true);
 
     try {
+      // Validate input
+      const validation = authSchema.safeParse({ email, password });
+      if (!validation.success) {
+        toast.error(validation.error.issues[0].message);
+        setLoading(false);
+        return;
+      }
+
       const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+        email: validation.data.email,
+        password: validation.data.password,
       });
 
       if (error) {
         if (error.message.includes("Invalid login credentials")) {
-          toast.error("Invalid email or password. Please check your credentials.");
+          toast.error("Invalid credentials.");
         } else {
-          toast.error(error.message);
+          toast.error("Unable to sign in. Please try again.");
         }
       } else {
         toast.success("Welcome back to Stellar Spectre!");
@@ -200,7 +222,7 @@ const Auth = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    minLength={6}
+                    minLength={8}
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>

@@ -6,6 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Mail } from "lucide-react";
+import { z } from "zod";
+
+const emailSchema = z.object({
+  email: z.string().trim().email({ message: "Invalid email address" }).max(255)
+});
 
 interface PasswordResetProps {
   onBack: () => void;
@@ -20,28 +25,26 @@ export const PasswordReset = ({ onBack }: PasswordResetProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email) {
+    // Validate email
+    const validation = emailSchema.safeParse({ email });
+    if (!validation.success) {
       toast({
         title: "Error",
-        description: "Please enter your email address",
+        description: validation.error.issues[0].message,
         variant: "destructive",
       });
       return;
     }
 
-    console.log('Password reset form submitted for:', email);
     setIsLoading(true);
 
     try {
       // Call our custom edge function for password reset
       const { data, error } = await supabase.functions.invoke('send-password-reset', {
-        body: { email }
+        body: { email: validation.data.email }
       });
 
-      console.log('Password reset response:', { data, error });
-
       if (error) {
-        console.error('Password reset error:', error);
         throw error;
       }
 
@@ -52,7 +55,6 @@ export const PasswordReset = ({ onBack }: PasswordResetProps) => {
       });
 
     } catch (error) {
-      console.error('Password reset error:', error);
       toast({
         title: "Error",
         description: "Failed to send reset email. Please try again.",
@@ -78,10 +80,7 @@ export const PasswordReset = ({ onBack }: PasswordResetProps) => {
           </CardHeader>
           <CardContent>
             <Button 
-              onClick={() => {
-                console.log('Back to login clicked from success page');
-                onBack();
-              }}
+              onClick={onBack}
               variant="outline"
               className="w-full"
             >
@@ -128,10 +127,7 @@ export const PasswordReset = ({ onBack }: PasswordResetProps) => {
           </form>
           
           <Button 
-            onClick={() => {
-              console.log('Back to login clicked from form page');
-              onBack();
-            }}
+            onClick={onBack}
             variant="ghost"
             className="w-full mt-4"
           >

@@ -264,6 +264,39 @@ export type Database = {
         }
         Relationships: []
       }
+      plant_analyses: {
+        Row: {
+          analysis_results: Json | null
+          confidence_score: number | null
+          created_at: string | null
+          id: string
+          image_url: string | null
+          model_used: string | null
+          processing_time_ms: number | null
+          user_id: string
+        }
+        Insert: {
+          analysis_results?: Json | null
+          confidence_score?: number | null
+          created_at?: string | null
+          id?: string
+          image_url?: string | null
+          model_used?: string | null
+          processing_time_ms?: number | null
+          user_id: string
+        }
+        Update: {
+          analysis_results?: Json | null
+          confidence_score?: number | null
+          created_at?: string | null
+          id?: string
+          image_url?: string | null
+          model_used?: string | null
+          processing_time_ms?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -365,7 +398,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_admin: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

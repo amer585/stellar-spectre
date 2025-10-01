@@ -30,20 +30,34 @@ const UploadZone = ({
     setFiles((prev) => [...prev, ...acceptedFiles]);
 
     try {
+      let successCount = 0;
+      let failCount = 0;
+
       for (const file of acceptedFiles) {
-        const path = `${category}/${Date.now()}_${file.name}`;
+        // Generate unique filename with timestamp, random string, and original name
+        const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+        const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const path = `${category}/${uniqueId}_${sanitizedFileName}`;
+        
         const { error: uploadError } = await supabase.storage
           .from('plant-datasets')
           .upload(path, file);
 
         if (uploadError) {
-          console.error('Upload error:', uploadError);
+          failCount++;
           toast.error(`Failed to upload ${file.name}`);
+        } else {
+          successCount++;
         }
       }
-      toast.success(`${label} files uploaded successfully!`);
+      
+      if (successCount > 0) {
+        toast.success(`Successfully uploaded ${successCount} file(s)`);
+      }
+      if (failCount > 0) {
+        toast.error(`Failed to upload ${failCount} file(s)`);
+      }
     } catch (err) {
-      console.error(err);
       toast.error(`Failed to upload ${label} files`);
     }
   };
@@ -156,7 +170,7 @@ const AIEnhancedAnalysis: React.FC = () => {
           category="non_plant"
           files={nonPlantFiles}
           setFiles={setNonPlantFiles}
-          exampleLink="https://pastebin.com/HsSZ8G9a"
+          exampleLink="https://pastebin.com/ZaxQTyA7"
         />
       </div>
 
