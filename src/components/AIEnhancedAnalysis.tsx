@@ -107,9 +107,9 @@ const AIEnhancedAnalysis: React.FC = () => {
   const handleTrain = async () => {
     setTraining(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-      if (!user) {
+      if (sessionError || !session) {
         toast.error("Please sign in to train models");
         return;
       }
@@ -118,11 +118,11 @@ const AIEnhancedAnalysis: React.FC = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           action: 'train-model',
-          userId: user.id,
+          userId: session.user.id,
           config: {
             model: 'yolov8',
             imageSize: 640,
