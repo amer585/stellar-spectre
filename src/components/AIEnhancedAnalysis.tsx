@@ -26,39 +26,74 @@ const UploadZone = ({
   setFiles: React.Dispatch<React.SetStateAction<File[]>>;
   exampleLink?: string;
 }) => {
-  const handleDrop = async (acceptedFiles: File[]) => {
-    setFiles((prev) => [...prev, ...acceptedFiles]);
-
-    try {
-      let successCount = 0;
-      let failCount = 0;
-
-      for (const file of acceptedFiles) {
-        // Generate unique filename with timestamp, random string, and original name
-        const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
-        const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-        const path = `${category}/${uniqueId}_${sanitizedFileName}`;
-        
+  const uploadFileWithRetry = async (file: File, maxRetries = 3): Promise<boolean> => {
+    const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(2, 15)}_${Math.random().toString(36).substring(2, 9)}`;
+    const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const path = `${category}/${uniqueId}_${sanitizedFileName}`;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
         const { error: uploadError } = await supabase.storage
           .from('plant-datasets')
-          .upload(path, file);
+          .upload(path, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
 
-        if (uploadError) {
-          failCount++;
-          toast.error(`Failed to upload ${file.name}`);
-        } else {
-          successCount++;
+        if (!uploadError) {
+          return true;
+        }
+        
+        if (attempt < maxRetries - 1) {
+          await new Promise(resolve => setTimeout(resolve, Math.min(1000 * Math.pow(2, attempt), 5000)));
+        }
+      } catch (err) {
+        if (attempt === maxRetries - 1) {
+          console.error(`Failed to upload ${file.name} after ${maxRetries} attempts:`, err);
+          return false;
+        }
+      }
+    }
+    return false;
+  };
+
+  const handleDrop = async (acceptedFiles: File[]) => {
+    setFiles((prev) => [...prev, ...acceptedFiles]);
+    
+    const totalFiles = acceptedFiles.length;
+    toast.info(`Starting upload of ${totalFiles} file(s)...`);
+
+    try {
+      const BATCH_SIZE = 10;
+      let successCount = 0;
+      let failCount = 0;
+      
+      for (let i = 0; i < acceptedFiles.length; i += BATCH_SIZE) {
+        const batch = acceptedFiles.slice(i, i + BATCH_SIZE);
+        const batchPromises = batch.map(file => uploadFileWithRetry(file));
+        const results = await Promise.all(batchPromises);
+        
+        const batchSuccess = results.filter(r => r).length;
+        const batchFail = results.filter(r => !r).length;
+        
+        successCount += batchSuccess;
+        failCount += batchFail;
+        
+        const progress = Math.min(i + BATCH_SIZE, totalFiles);
+        if (progress < totalFiles) {
+          toast.info(`Uploaded ${progress}/${totalFiles} files...`);
         }
       }
       
       if (successCount > 0) {
-        toast.success(`Successfully uploaded ${successCount} file(s)`);
+        toast.success(`Successfully uploaded ${successCount}/${totalFiles} file(s)`);
       }
       if (failCount > 0) {
-        toast.error(`Failed to upload ${failCount} file(s)`);
+        toast.error(`Failed to upload ${failCount}/${totalFiles} file(s). Please try again.`);
       }
     } catch (err) {
-      toast.error(`Failed to upload ${label} files`);
+      console.error('Upload error:', err);
+      toast.error(`Upload process failed. Please try again.`);
     }
   };
 
