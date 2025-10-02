@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import PlantDetection from "./pages/PlantDetection";
+import TrainAI from "./pages/TrainAI";
 import type { User, Session } from '@supabase/supabase-js';
 
 const queryClient = new QueryClient();
@@ -52,6 +53,7 @@ const AppContent = () => {
       <Route path="/auth" element={<Auth />} />
       <Route path="/" element={<Index user={user} session={session} />} />
       <Route path="/plant-detection" element={<PlantDetection />} />
+      <Route path="/train-ai" element={<TrainAI />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
