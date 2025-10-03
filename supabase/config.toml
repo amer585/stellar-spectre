@@ -1,5 +1,11 @@
 project_id = "yjpuugbijzkrzahfamqn"
 
+[functions.plant-image-analysis]
+verify_jwt = true
+
+[functions.pytorch-inference]
+verify_jwt = true
+
 [api]
 port = 54321
 schemas = ["public", "storage", "graphql_public"]

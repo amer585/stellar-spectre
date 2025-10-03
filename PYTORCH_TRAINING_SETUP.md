@@ -1,13 +1,21 @@
-# Real PyTorch Training Setup
+# Real PyTorch Training Setup + AI Analysis
 
-This guide explains how to set up and use the **real PyTorch backend** for training plant detection models.
+This guide explains how to set up and use the **real PyTorch backend** with **real AI image analysis** for training plant detection models.
 
 ## 🏗️ Architecture
 
 - **Frontend**: React + TypeScript (uploads images to Supabase Storage)
-- **Backend**: Python + FastAPI + PyTorch (real deep learning training)
-- **Model**: ResNet-50 transfer learning for plant classification
+- **Backend**: Python + FastAPI + PyTorch (real deep learning training + inference)
+- **AI Analysis**: Lovable AI Gateway (Gemini 2.5 Flash) for real-time image analysis
+- **Model**: ResNet18 transfer learning for plant classification
 - **Deployment**: Docker containerized backend
+
+## ✨ New Features
+
+✅ **Real AI Image Analysis** - Each uploaded image analyzed by Gemini 2.5 Flash  
+✅ **Real PyTorch Training** - Full backpropagation with ResNet18  
+✅ **Real Inference** - Run predictions using trained models  
+✅ **Model Export** - TorchScript and ONNX support
 
 ## 🚀 Quick Start
 
@@ -50,12 +58,13 @@ Navigate to: `http://localhost:3000/train-ai` in your browser
 
 ## 📋 Training Workflow
 
-### Step 1: Upload Images
-First, upload your plant and non-plant images using the main app:
+### Step 1: Upload Images with AI Analysis
+Upload your plant and non-plant images:
 - Go to the main dashboard
-- Use the drag-and-drop interface to upload:
-  - **Plant images**: Leaves, stems, flowers of plants
-  - **Non-plant images**: Rocks, soil, sky, animals, etc.
+- Use the drag-and-drop interface to upload images
+- **NEW**: Each image is automatically analyzed by Lovable AI (Gemini 2.5 Flash)
+- AI identifies: plant type, health status, diseases, confidence scores
+- Images organized in Supabase Storage with AI metadata
 
 ### Step 2: Prepare Dataset
 1. Click **"Prepare Dataset from Storage"**
@@ -87,6 +96,53 @@ Once training completes:
 3. Use the model for inference in your applications
 
 ## 🔧 Backend API Endpoints
+
+### Analyze Image with AI (NEW)
+```bash
+POST /functions/v1/plant-image-analysis
+Authorization: Bearer {supabase_access_token}
+Content-Type: application/json
+
+Body:
+{
+  "imageBase64": "data:image/jpeg;base64,..."
+}
+
+Response:
+{
+  "success": true,
+  "analysis": {
+    "isPlant": true,
+    "plantType": "Tomato",
+    "healthStatus": "disease",
+    "disease": "Early Blight",
+    "confidence": 0.92,
+    "features": ["yellowing leaves", "brown spots", "wilting"]
+  }
+}
+```
+
+### Run Inference with Trained Model (NEW)
+```bash
+POST /predict
+Content-Type: application/x-www-form-urlencoded
+
+Body:
+- image: base64 encoded image
+- model_path: (optional) path to checkpoint
+
+Response:
+{
+  "success": true,
+  "prediction": "plant",
+  "confidence": 0.94,
+  "class_probabilities": {
+    "plant": 0.94,
+    "non_plant": 0.06
+  },
+  "inference_time": 45.2
+}
+```
 
 ### Upload Dataset
 ```bash

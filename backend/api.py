@@ -1,13 +1,20 @@
 
 import os
+import io
+import base64
 import zipfile
 import shutil
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Header
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 from train import Trainer
+from ai_model import TransferResNet
 import dotenv
+import torch
+from PIL import Image
+from torchvision import transforms
+import time
 
 dotenv.load_dotenv()
 
@@ -128,3 +135,68 @@ def stop_training(authorization: str = Header(None)):
         return {'status': 'no job'}
     t.stop()
     return {'status': 'stopping'}
+
+
+@app.post('/predict')
+async def predict_image(image: str = Form(...), model_path: str = Form(None)):
+    """Real PyTorch inference on uploaded image"""
+    try:
+        # Decode base64 image
+        if image.startswith('data:image'):
+            image = image.split(',')[1]
+        
+        img_data = base64.b64decode(image)
+        img = Image.open(io.BytesIO(img_data)).convert('RGB')
+        
+        # Prepare transforms
+        transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        ])
+        
+        img_tensor = transform(img).unsqueeze(0)
+        
+        # Load model
+        t = TRAINER.get('instance')
+        if model_path and Path(model_path).exists():
+            # Load from checkpoint
+            checkpoint = torch.load(model_path, map_location='cpu')
+            classes = checkpoint.get('classes', ['plant', 'non_plant'])
+            model = TransferResNet(num_classes=len(classes))
+            model.load_state_dict(checkpoint['model_state'])
+        elif t and t.model:
+            model = t.model
+            classes = t.classes
+        else:
+            raise HTTPException(status_code=400, detail='No model available. Train a model first.')
+        
+        model.eval()
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        model = model.to(device)
+        img_tensor = img_tensor.to(device)
+        
+        # Run inference
+        start_time = time.time()
+        
+        with torch.no_grad():
+            outputs = model(img_tensor)
+            probabilities = torch.softmax(outputs, dim=1)
+            predicted_idx = torch.argmax(probabilities, dim=1).item()
+            confidence = probabilities[0][predicted_idx].item()
+        
+        inference_time = (time.time() - start_time) * 1000  # ms
+        
+        return {
+            'success': True,
+            'prediction': classes[predicted_idx],
+            'confidence': float(confidence),
+            'class_probabilities': {
+                cls: float(probabilities[0][i].item())
+                for i, cls in enumerate(classes)
+            },
+            'inference_time': inference_time
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
