@@ -6,9 +6,6 @@ verify_jwt = true
 [functions.pytorch-inference]
 verify_jwt = false
 
-[functions.simple-plant-classifier]
-verify_jwt = false
-
 [api]
 port = 54321
 schemas = ["public", "storage", "graphql_public"]
