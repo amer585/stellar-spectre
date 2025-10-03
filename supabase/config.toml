@@ -4,7 +4,10 @@ project_id = "yjpuugbijzkrzahfamqn"
 verify_jwt = true
 
 [functions.pytorch-inference]
-verify_jwt = true
+verify_jwt = false
+
+[functions.simple-plant-classifier]
+verify_jwt = false
 
 [api]
 port = 54321
